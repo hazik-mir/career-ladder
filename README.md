@@ -1,6 +1,8 @@
 # Career Ladder Game
 
-A static career guessing arcade with a still, expressive voxel host, four broad opening clues, and an adaptive bank of 162 detailed question phrasings. It uses a Bayesian-style evidence score and expected information gain to choose each next clue, then makes a fresh best-job guess after every ten answered questions. The five-minute clock pauses between questions and guesses; when it expires, players can add another minute or ask for a guess. Go Back restores the previous clue and recalculates the candidate ranking. The interface has no intro or motion animations. Its original, low-volume sine-wave tune starts after the player clicks Start.
+A static job guessing game with two pages: a landing page at `index.html` and the game at `game.html`. The game starts with broad questions about digital and technical work, then chooses clues from a related work area. Its 162 phrasings cover 54 job traits, with Bayesian-style evidence weighting and expected information gain used to select questions. It makes a job guess after each ten answers. A short clock pauses while the player is choosing, can be extended, and includes a Go Back control that recalculates the candidate ranking.
+
+The host is an original, expressive vector character with restrained transitions. There is no autoplay and no generated soundtrack. The game can run without Supabase; saving a scorecard is optional and requires the player to agree before the name, job, and answers are submitted.
 
 ## Supabase setup
 
@@ -9,13 +11,13 @@ A static career guessing arcade with a still, expressive voxel host, four broad 
 1. Open the Supabase project that matches the URL in `config.js`.
 2. In **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql). If the tables already exist, run [`supabase/migrations/20261009_fix_game_save_permissions_and_clock.sql`](supabase/migrations/20261009_fix_game_save_permissions_and_clock.sql).
 3. In **Project Settings → Data API**, make sure the `public` schema is exposed.
-4. Refresh the site. The top status should say **DATABASE CONNECTED**.
+4. Refresh the site and check the database status in the game footer.
 
-The game saves the name, job, and full answer list to `career_ladder_games` after the scorecard is submitted. PostgREST needs a table-level `SELECT` grant to process its insert response, even when the client requests `return=minimal`; there is deliberately no `SELECT` RLS policy, so public reads still return no game rows. The separate `career_ladder_job_votes` table stores only normalized job titles and random browser voter IDs. A job is treated as established after four distinct browser IDs vote for it. This is a casual signal; clearing browser storage can create a new ID.
+The game saves the player’s name, job, and answer list to `career_ladder_games` only after scorecard consent. The public API has no game-row read policy. `career_ladder_job_votes` stores a normalized job title and random browser voter ID to prevent duplicate votes from the same browser. A job requires four distinct IDs before it is treated as established; clearing browser storage can create a new ID.
 
-If the site says **RUN DATABASE SETUP**, the tables are missing or the schema is not exposed. **DATABASE UNAVAILABLE** means the connection or key was rejected. **OFFLINE SAVE QUEUED** means the run is stored in browser storage and will retry when the database is reachable. The game still works if Supabase is unavailable.
+If Supabase is unavailable, a submitted run is queued in browser storage and retried when the connection returns. The guessing game remains playable offline.
 
 ## Preview and deploy
 
-Serve this folder with any static web server and open it over HTTP or HTTPS. Upload the folder contents to the repository configured for GitHub Pages, keeping `CNAME`. The canonical domain in metadata and the sitemap is `careerladder.hazik.in`.
+Serve this folder with a static web server and open it over HTTP or HTTPS. Upload the folder contents to the repository configured for GitHub Pages, keeping `CNAME`. The canonical domain in the page metadata and sitemap is `careerladder.hazik.in`.
 
