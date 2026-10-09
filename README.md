@@ -2,7 +2,7 @@
 
 A static job guessing game with two pages: a landing page at `index.html` and the game at `game.html`. The game starts with broad questions about digital and technical work, then chooses clues from a related work area. Its 162 phrasings cover 54 job traits, with Bayesian-style evidence weighting and expected information gain used to select questions. It makes a job guess after each ten answers. A short clock pauses while the player is choosing, can be extended, and includes a Go Back control that recalculates the candidate ranking.
 
-The host is an original, expressive vector character with restrained transitions. There is no autoplay and no generated soundtrack. The game can run without Supabase; saving a scorecard is optional and requires the player to agree before the name, job, and answers are submitted.
+The host is an original, expressive vector character with restrained transitions. The looping soundtrack uses `audio/themesong.mp3` at 25% volume, starts when the player begins, and has a mute control. The game includes the supplied social-bar ad tag in a small sponsored placement; the pop-under tag is not used. Related games appear below the play area. The game can run without Supabase; saving a scorecard is optional and requires the player to agree before the name, job, and answers are submitted.
 
 ## Supabase setup
 
