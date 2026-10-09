@@ -6,6 +6,11 @@
   const data = window.CAREER_LADDER_DATA;
   if (!data || !data.traits || !Array.isArray(data.jobs)) {
     console.error('Career Ladder data failed to load.');
+    const content = document.querySelector('#content');
+    if (content) {
+      content.innerHTML = '<div class="result-panel"><h2 class="result-title">The job list didn’t load.</h2><p class="result-copy">Check your connection, then reload the game.</p><button class="primary-btn" id="reload-game" type="button">Reload game</button></div>';
+      content.querySelector('#reload-game')?.addEventListener('click', () => window.location.reload());
+    }
     return;
   }
 
@@ -80,7 +85,7 @@
 
   function setPhase(label) { ui.phase.textContent = label; }
   function setFace(expression = 'neutral') {
-    ui.avatar.className = `avatar avatar-${expression}`;
+    if (ui.avatar) ui.avatar.setAttribute('class', `avatar avatar-${expression}`);
   }
   function typeText(element, text, delay = 17) {
     if (!element) return;
