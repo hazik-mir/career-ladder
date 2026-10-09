@@ -18,8 +18,13 @@
     content: $('#content'), speech: $('#speech-text'), avatar: $('#avatar'), phase: $('#phase-label'),
     timer: $('#timer'), timerWrap: $('#timer-wrap'), round: $('#round-label'), questions: $('#question-count'),
     possible: $('#possible-count'), best: $('#best-guess'), progress: $('#progress-bar'), progressText: $('#progress-caption'),
-    climb: $('#climb-fill'), streak: $('#streak'), save: $('#save-status'), tip: $('#tip-text')
+    climb: $('#climb-fill'), streak: $('#streak'), save: $('#save-status'), tip: $('#tip-text'),
+    music: $('#theme-audio'), musicToggle: $('#music-toggle')
   };
+  let musicOn = false;
+  let fallbackAudioContext = null;
+  let fallbackMusicTimer = null;
+  let fallbackMusicStarting = false;
   const ANSWERS = ['Yes', 'No', 'I Don’t Know', 'Probably', 'Probably Not'];
   const ANSWER_LIKELIHOOD = [
     [.70, .03], // Yes: probability given a matching / non-matching job profile
@@ -110,6 +115,56 @@
     try { typeText(ui.speech, text); }
     catch (error) { console.warn('[Career Ladder] Host speech could not animate:', error); ui.speech.textContent = text; }
   }
+  function updateMusicControl(enabled) {
+    if (!ui.musicToggle) return;
+    ui.musicToggle.classList.toggle('is-playing', enabled);
+    ui.musicToggle.setAttribute('aria-pressed', String(enabled));
+    ui.musicToggle.setAttribute('aria-label', enabled ? 'Turn music off' : 'Turn music on');
+    const label = ui.musicToggle.querySelector('.music-label');
+    if (label) label.textContent = enabled ? 'Music on' : 'Music off';
+  }
+  function stopMusic() {
+    musicOn = false;
+    if (fallbackMusicTimer !== null) window.clearInterval(fallbackMusicTimer);
+    fallbackMusicTimer = null; fallbackMusicStarting = false;
+    if (ui.music) { ui.music.pause(); try { ui.music.currentTime = 0; } catch {} }
+    if (fallbackAudioContext) { const context = fallbackAudioContext; fallbackAudioContext = null; context.close().catch(() => {}); }
+    updateMusicControl(false);
+  }
+  function startFallbackMusic() {
+    if (!musicOn || fallbackMusicStarting || fallbackMusicTimer !== null) return;
+    const AudioContextType = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextType) { updateMusicControl(false); return; }
+    fallbackMusicStarting = true;
+    const context = new AudioContextType(); fallbackAudioContext = context;
+    const master = context.createGain(); master.gain.value = .25; master.connect(context.destination);
+    const notes = [261.63,329.63,392,329.63,293.66,349.23,440,349.23,261.63,392,329.63,392,523.25,440,392,329.63];
+    let step = 0;
+    const pluck = () => {
+      if (!musicOn || fallbackAudioContext !== context) return;
+      const now = context.currentTime; const tone = context.createOscillator(); const envelope = context.createGain();
+      tone.type = 'sine'; tone.frequency.value = notes[step];
+      envelope.gain.setValueAtTime(.0001, now); envelope.gain.exponentialRampToValueAtTime(.055, now + .035); envelope.gain.exponentialRampToValueAtTime(.0001, now + .47);
+      tone.connect(envelope); envelope.connect(master); tone.start(now); tone.stop(now + .49); step = (step + 1) % notes.length;
+    };
+    context.resume().then(() => {
+      fallbackMusicStarting = false;
+      if (!musicOn || fallbackAudioContext !== context) { context.close().catch(() => {}); return; }
+      pluck(); fallbackMusicTimer = window.setInterval(pluck, 560); updateMusicControl(true);
+    }).catch(() => { fallbackMusicStarting = false; updateMusicControl(false); });
+  }
+  function startMusic() {
+    if (musicOn) return;
+    musicOn = true;
+    if (ui.music) {
+      ui.music.volume = .25;
+      const playback = ui.music.play();
+      if (playback && typeof playback.then === 'function') playback.then(() => updateMusicControl(true)).catch(startFallbackMusic);
+      else updateMusicControl(true);
+      return;
+    }
+    startFallbackMusic();
+  }
   function setSaveState(kind, text) {
     ui.save.classList.toggle('offline', kind === 'offline');
     ui.save.classList.toggle('error', kind === 'error');
@@ -159,6 +214,7 @@
   }
 
   function beginQuestions() {
+    startMusic();
     state.screen = 'question'; state.locked = false; state.answers = []; state.guesses = [];
     state.used.clear(); state.eliminatedGuesses.clear(); state.candidates = baseCandidates();
     state.currentDomain = ''; state.domainTurns = 0;
@@ -550,6 +606,8 @@
     if (document.hidden) stopTimer();
     else if (state.screen === 'question' && !state.locked) startTimer();
   });
+  if (ui.musicToggle) ui.musicToggle.addEventListener('click', () => { if (musicOn) stopMusic(); else startMusic(); });
+  if (ui.music) ui.music.addEventListener('error', () => { if (musicOn) startFallbackMusic(); });
   document.addEventListener('keydown', (event) => {
     if (!/^[1-5]$/.test(event.key) || state.screen !== 'question' || state.locked) return;
     if (event.target instanceof HTMLElement && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
