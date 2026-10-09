@@ -3,64 +3,92 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101715">
-  <meta name="description" content="Climb the Career Ladder: a playful, block-built career guessing game. Answer the questions and see if the game can figure out your job.">
-  <meta property="og:title" content="Career Ladder — The Job Guessing Game">
-  <meta property="og:description" content="Answer the questions. Climb the ladder. Outsmart the guesser.">
+  <meta name="theme-color" content="#dcecff">
+  <meta name="description" content="Hope you don’t have to hold your bladder, because it’s time for the Career Ladder. Think of a job and see if our clever career guesser can figure it out.">
+  <meta property="og:title" content="Hope You Don’t Have to Hold Your Bladder — Career Ladder">
+  <meta property="og:description" content="Pick a job. Answer a few clever questions. Can the Career Ladder guess it?">
   <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Hope You Don’t Have to Hold Your Bladder — Career Ladder">
+  <meta name="twitter:description" content="Pick a job, answer smart questions, and see if the Career Ladder can guess it.">
   <link rel="canonical" href="https://careerladder.hazik.in/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="site.webmanifest">
-  <title>Hope You Don’t Have to Hold Your Bladder — Career Ladder</title>
   <link rel="stylesheet" href="style.css">
-  <script defer src="config.js"></script>
-  <script defer src="data.js"></script>
-  <script defer src="app.js"></script>
+  <title>Hope You Don’t Have to Hold Your Bladder — Career Ladder Game</title>
+  <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"Game","name":"Career Ladder","url":"https://careerladder.hazik.in/","description":"A question-driven game that tries to guess the job you have in mind.","genre":"Guessing game","inLanguage":"en"}
+  </script>
 </head>
-<body>
-  <div class="scanlines" aria-hidden="true"></div>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="Career Ladder home"><span class="brand-mark">CL</span><span>CAREER<span class="brand-accent">LADDER</span></span></a>
-    <div class="top-actions"><span class="online-pill"><i></i> JOB GUESSING ARCADE</span><button id="sound-toggle" class="icon-button" type="button" aria-label="Turn sound on">♫ <span>Sound off</span></button></div>
+<body class="home-page">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Career Ladder home"><span class="brand-icon" aria-hidden="true">CL</span><span>Career <b>Ladder</b></span></a>
+    <a class="header-link" href="game.html">How to play <span aria-hidden="true">↗</span></a>
   </header>
 
-  <main class="layout">
-    <section class="game-shell" aria-label="Career Ladder game">
-      <div class="game-head"><div><p class="eyebrow">THE ORIGINAL CAREER CLIMB</p><h1>Career <span>Ladder</span></h1></div><div class="round-badge"><span class="pixel-star">✦</span><span id="round-label">READY PLAYER?</span></div></div>
-      <div class="playfield" id="playfield">
-        <div class="world-grid" aria-hidden="true"></div>
-        <div class="scene-sun" aria-hidden="true"></div>
-        <div class="scene-cloud cloud-one" aria-hidden="true"></div><div class="scene-cloud cloud-two" aria-hidden="true"></div>
-        <div class="ladder" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        <div class="platform platform-left" aria-hidden="true"></div><div class="platform platform-right" aria-hidden="true"></div>
-        <div id="avatar" class="avatar avatar-idle" aria-label="Pixel game host">
-          <div class="char-shadow"></div><div class="char-head"><div class="hair"></div><div class="brows"><b></b><b></b></div><div class="eyes"><b></b><b></b></div><div class="mouth"></div></div>
-          <div class="char-neck"></div><div class="char-body"><div class="shirt-badge">★</div></div>
-          <div class="char-arm arm-left"></div><div class="char-arm arm-right"></div>
-          <div class="char-leg leg-left"></div><div class="char-leg leg-right"></div>
-          <div class="avatar-name">LADDER BOT</div>
-        </div>
-        <div class="pixel-speech" id="speech" aria-live="polite"><span class="speech-label">LADDER BOT SAYS</span><span id="speech-text">Ready to climb?</span></div>
-        <div class="scene-hud"><span>WORLD 01</span><span id="timer-wrap" class="timer-wrap"><span class="timer-icon">◷</span><span id="timer">05:00</span></span><span id="streak">★ 0</span></div>
-        <div class="climb-meter"><span id="climb-fill"></span></div>
+  <main>
+    <section class="home-hero" aria-labelledby="home-title">
+      <div class="hero-copy">
+        <p class="kicker"><span class="kicker-dot"></span> A JOB GUESSING GAME</p>
+        <h1 id="home-title">Hope you don’t have to hold your bladder…</h1>
+        <p class="hero-subtitle">…because it’s time for the <span>Career Ladder.</span></p>
+        <p class="hero-description">Think of a real job. I’ll ask smart, simple questions, follow your clues, and try to guess what it is.</p>
+        <a class="play-button" href="game.html">Play the game <span aria-hidden="true">→</span></a>
+        <p class="hero-note"><span aria-hidden="true">✦</span> No account needed to play · About 5 minutes</p>
       </div>
-
-      <section class="game-panel" id="game-panel" aria-live="polite">
-        <div class="panel-topline"><span id="phase-label" class="phase-tag">WELCOME</span><span id="save-status" class="save-status"><i></i> LOCAL READY</span></div>
-        <div id="content" class="panel-content"></div>
-      </section>
-      <div class="controller-hint"><span class="keycap">←</span><span class="keycap">→</span> Use the buttons to answer <span class="hint-sep">•</span> Your answers help the bot learn</div>
+      <div class="hero-art" aria-label="Career Ladder's friendly game host">
+        <div class="art-orbit orbit-one" aria-hidden="true"></div>
+        <div class="art-orbit orbit-two" aria-hidden="true"></div>
+        <div class="art-spark spark-one" aria-hidden="true">✦</div>
+        <div class="art-spark spark-two" aria-hidden="true">✧</div>
+        <div class="host-note"><span class="note-mark">✦</span><span>Think of a job.<br><b>Keep it secret.</b></span></div>
+        <svg class="host-illustration" viewBox="0 0 360 440" role="img" aria-labelledby="host-title">
+          <title id="host-title">A friendly, original career game host</title>
+          <defs>
+            <linearGradient id="skin" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#ffd9b6"/><stop offset="1" stop-color="#e9a779"/></linearGradient>
+            <linearGradient id="coat" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#3179c8"/><stop offset="1" stop-color="#164a8c"/></linearGradient>
+            <linearGradient id="hair" x1="0" x2="1"><stop stop-color="#33283a"/><stop offset="1" stop-color="#181a2c"/></linearGradient>
+            <filter id="host-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#6684ad" flood-opacity=".25"/></filter>
+          </defs>
+          <ellipse cx="190" cy="408" rx="98" ry="16" fill="#88a7cd" opacity=".32"/>
+          <g filter="url(#host-shadow)">
+            <path d="M98 397c2-56 18-102 54-119h79c39 18 54 64 57 119l-22 9H116z" fill="url(#coat)"/>
+            <path d="M152 280c11 15 23 21 40 21s33-8 44-23l20 12-32 50-34-22-32 24-29-49z" fill="#f6f9ff"/>
+            <path d="M174 294l18 26 18-26 16 95h-69z" fill="#f4a64d"/>
+            <path d="M160 246h67v55c-9 17-20 25-34 25-13 0-25-9-33-25z" fill="url(#skin)"/>
+            <path d="M118 174c0-57 32-93 77-93 52 0 84 37 84 93v44c0 56-36 89-82 89-43 0-79-33-79-88z" fill="url(#skin)"/>
+            <path d="M117 183c-6-55 8-102 51-120 33-14 83-2 103 26 15 21 18 48 13 79-13-7-20-25-20-49-18 14-47 20-78 19-19 0-38-4-55-12-1 25-5 43-14 57z" fill="url(#hair)"/>
+            <path d="M128 143c4-27 20-47 38-59-5 21-3 33 3 45-14-3-28 2-41 14zm100-60c28 11 44 34 49 65-12-14-26-20-43-19 8-15 6-30-6-46z" fill="#49334a"/>
+            <path d="M135 199c-17-17-30-9-27 7 3 15 15 27 27 25m141-32c16-17 29-9 26 7-3 15-15 27-27 25" fill="url(#skin)" stroke="#d58f69" stroke-width="5"/>
+            <path d="M151 190c12-9 24-9 36-2m32 0c11-7 23-7 34 1" fill="none" stroke="#422f39" stroke-width="7" stroke-linecap="round"/>
+            <ellipse cx="170" cy="207" rx="6" ry="8" fill="#1e3554"/><ellipse cx="237" cy="207" rx="6" ry="8" fill="#1e3554"/>
+            <circle cx="172" cy="204" r="2" fill="white"/><circle cx="239" cy="204" r="2" fill="white"/>
+            <path d="M198 207c-2 14-8 25-4 29 4 4 12 4 17 0" fill="none" stroke="#cb8663" stroke-width="5" stroke-linecap="round"/>
+            <path class="home-mouth-smile" d="M174 251c12 18 39 22 55 0" fill="none" stroke="#a74f52" stroke-width="6" stroke-linecap="round"/>
+            <path d="M152 337l-30 60m137-58 31 58" stroke="#164a8c" stroke-width="20" stroke-linecap="round"/>
+            <path d="M151 393h81" stroke="#f4a64d" stroke-width="6" stroke-linecap="round" opacity=".9"/>
+          </g>
+          <g class="host-badge"><circle cx="266" cy="123" r="19" fill="#fff"/><path d="M266 111l3.8 8.1 8.9 1.1-6.5 6.1 1.7 8.7-7.9-4.4-7.8 4.4 1.5-8.7-6.4-6.1 8.9-1.1z" fill="#f2ad49"/></g>
+        </svg>
+      </div>
     </section>
 
-    <aside class="side-rail">
-      <div class="side-card objective-card"><div class="card-heading"><span class="mini-icon">▣</span> YOUR MISSION</div><ol class="mission-list"><li class="mission-active" id="mission-1"><b>01</b><span>Think of your job</span><em>●</em></li><li id="mission-2"><b>02</b><span>Answer the questions</span><em>●</em></li><li id="mission-3"><b>03</b><span>Beat the guesser</span><em>●</em></li></ol><div class="time-card"><span class="time-pixel">◷</span><div><strong>5 MINUTES</strong><small>Can the bot climb to the right answer?</small></div></div></div>
-      <div class="side-card stats-card"><div class="card-heading"><span class="mini-icon">▤</span> THIS RUN</div><div class="stat-row"><span>Questions</span><strong id="question-count">0</strong></div><div class="stat-row"><span>Possible jobs</span><strong id="possible-count">—</strong></div><div class="stat-row"><span>Best guess</span><strong id="best-guess">—</strong></div><div class="progress-track"><span id="progress-bar"></span></div><small class="progress-caption" id="progress-caption">Start a new climb</small></div>
-      <div class="side-card tip-card"><div class="card-heading"><span class="mini-icon">✦</span> LADDER TIP</div><p id="tip-text">Every answer changes the path. “Probably” counts as a hint too.</p><div class="tip-squares"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-      <a class="credits-link" href="#credits">CREDITS & ABOUT <span>↗</span></a>
-    </aside>
+    <section class="how-section" aria-labelledby="how-title">
+      <div class="section-heading"><p class="kicker">QUICK TO LEARN</p><h2 id="how-title">One job. A few clever clues.</h2></div>
+      <div class="steps-grid">
+        <article class="step-card"><span class="step-number">01</span><h3>Pick a job</h3><p>Choose a job you know well and keep it in mind.</p></article>
+        <article class="step-card"><span class="step-number">02</span><h3>Answer honestly</h3><p>Choose Yes, No, Probably, Probably Not, or I Don’t Know. 160+ clue phrasings keep rounds varied.</p></article>
+        <article class="step-card"><span class="step-number">03</span><h3>See if I’m right</h3><p>I’ll use your answers to narrow it down and make a guess.</p></article>
+      </div>
+    </section>
   </main>
 
-  <footer id="credits"><span>© <span id="year"></span> CAREER LADDER GAME</span><span>MADE BY <a href="https://github.com/hazik-mir" rel="me">HAZIK-MIR</a></span><span>Independent project · No affiliation · Original game and artwork</span></footer>
+  <footer class="site-footer" id="credits">
+    <span>© <span id="year"></span> Career Ladder Game</span>
+    <span>Made by <a href="https://github.com/hazik-mir" rel="me">hazik-mir</a></span>
+    <span>Independent project · No affiliation · Original game and artwork</span>
+  </footer>
+  <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
 </body>
 </html>
 
