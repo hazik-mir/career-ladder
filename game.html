@@ -13,20 +13,26 @@
   <meta name="twitter:description" content="Think of a job. Answer adaptive questions. See if the Career Ladder can guess it.">
   <link rel="canonical" href="https://careerladder.hazik.in/game.html">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="./style.css?v=20261009-gameboard-2" as="style">
-  <link rel="stylesheet" href="./style.css?v=20261009-gameboard-2" media="all">
+  <link rel="preload" href="./style.css?v=20261009-music-ads-3" as="style">
+  <link rel="stylesheet" href="./style.css?v=20261009-music-ads-3" media="all">
   <title>Play Career Ladder — Job Guessing Game</title>
   <script defer src="./config.js"></script>
   <script defer src="./data.js"></script>
-  <script defer src="./app.js?v=20261009-svg-safe-2"></script>
+  <script defer src="./app.js?v=20261009-music-ads-3"></script>
 </head>
 <body class="game-page">
   <header class="site-header game-header">
     <a class="brand" href="index.html" aria-label="Career Ladder home"><span class="brand-icon" aria-hidden="true">CL</span><span>Career <b>Ladder</b></span></a>
-    <div class="game-header-right"><span class="header-game-label"><i></i> JOB GUESSING GAME</span><a class="header-link" href="index.html">Exit game <span aria-hidden="true">↗</span></a></div>
+    <div class="game-header-right"><span class="header-game-label"><i></i> JOB GUESSING GAME</span><button class="music-toggle" id="music-toggle" type="button" aria-pressed="false" aria-label="Turn music on"><span aria-hidden="true">♫</span><span class="music-label">Music off</span></button><a class="header-link" href="index.html">Exit game <span aria-hidden="true">↗</span></a></div>
   </header>
 
   <main class="game-layout">
+    <aside class="ad-rail" aria-label="Advertisement">
+      <p class="ad-label">SPONSORED</p>
+      <div class="ad-card">
+        <iframe class="ad-frame" title="Sponsored banner" loading="lazy" sandbox="allow-scripts allow-forms" srcdoc='<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}</style></head><body><script data-cfasync="false" src="https://bauval.org/14/bf32b0005cebbf9f88b4757ab42ff0a3"></script></body></html>'></iframe>
+      </div>
+    </aside>
     <section class="game-shell" aria-label="Career Ladder game">
       <div class="game-heading">
         <div><p class="kicker">KEEP A JOB IN MIND</p><h1>Can I guess <span>your job?</span></h1></div>
@@ -82,12 +88,22 @@
     </section>
   </main>
 
+  <section class="more-games" aria-labelledby="more-games-title">
+    <div><p class="kicker">ONE MORE ROUND?</p><h2 id="more-games-title">Check out more games</h2></div>
+    <nav class="more-games-links" aria-label="More games and sites">
+      <a href="https://mineduel.hazik.in/" target="_blank" rel="noopener noreferrer">MineDuel <span aria-hidden="true">↗</span></a>
+      <a href="https://mineclowter.hazik.in/" target="_blank" rel="noopener noreferrer">MineClowter <span aria-hidden="true">↗</span></a>
+      <a href="https://hazik.in/" target="_blank" rel="noopener noreferrer">Hazik.in <span aria-hidden="true">↗</span></a>
+    </nav>
+  </section>
+
   <section class="sr-only" aria-hidden="true">
     <span id="question-count">0</span><span id="possible-count">0</span><span id="best-guess"></span>
     <span id="progress-caption"></span><span id="streak"></span><span id="tip-text"></span><span id="year"></span>
     <span id="timer-wrap-dummy"></span><span id="climb-fill"></span><span id="progress-bar"></span>
   </section>
   <footer class="site-footer game-footer" id="credits"><span>Independent project · No affiliation · Original game and artwork</span><a href="https://github.com/hazik-mir" rel="me">Credits · hazik-mir</a></footer>
+  <audio id="theme-audio" src="./audio/themesong.mp3" loop preload="none" aria-hidden="true"></audio>
 </body>
 </html>
 
