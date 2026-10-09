@@ -104,6 +104,7 @@
   function setSaveState(kind, text) {
     ui.save.classList.toggle('offline', kind === 'offline');
     ui.save.classList.toggle('error', kind === 'error');
+    ui.save.hidden = !/^(RUN SAVED|SAVE FAILED|OFFLINE)/i.test(text);
     ui.save.replaceChildren(document.createElement('i'), document.createTextNode(` ${text}`));
   }
 
@@ -254,7 +255,7 @@
     say('Choose the answer that fits best. I’m listening.', 'curious');
     ui.timer.textContent = clockText(state.seconds); ui.timerWrap.classList.add('active');
     ui.timerWrap.classList.toggle('low', state.seconds <= 20); startTimer();
-    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">QUESTION ${String(state.answers.length + 1).padStart(2, '0')}</span><span>·</span><span>${state.candidates.length.toLocaleString()} PROFILES IN PLAY</span></div><h2 class="question-title typing-text"></h2><p class="question-sub">Pick the closest answer. “Probably” and “I don’t know” still count.</p><div class="answers">${ANSWERS.map((answer, i) => `<button class="answer-btn" type="button" data-answer="${i}">${esc(answer)}</button>`).join('')}</div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">TIMER RUNNING</span></div></div>`;
+    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">QUESTION ${String(state.answers.length + 1).padStart(2, '0')}</span><span>·</span><span>${state.candidates.length.toLocaleString()} JOBS IN PLAY</span></div><h2 class="question-title typing-text"></h2><p class="question-sub">Pick the closest answer. “Probably” and “I don’t know” still count.</p><div class="answers">${ANSWERS.map((answer, i) => `<button class="answer-btn" type="button" data-answer="${i}" aria-keyshortcuts="${i + 1}"><span class="answer-key" aria-hidden="true">${i + 1}</span><span class="answer-label">${esc(answer)}</span></button>`).join('')}</div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">TIMER RUNNING · PRESS 1–5</span></div></div>`;
     typeText(ui.content.querySelector('.question-title'), question.text, 15);
     ui.content.querySelectorAll('.answer-btn').forEach((button) => button.addEventListener('click', () => handleAnswer(Number(button.dataset.answer), question)));
     $('#go-back').addEventListener('click', goBack);
@@ -320,7 +321,7 @@
       item.classList.toggle('mission-active', i === 2); if (i < 2) item.classList.add('mission-done');
     });
     say(`I’ve compared your clues. My best match is ${candidate.job.name}. Is that it?`, 'curious');
-    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">GUESS AFTER ${state.answers.length} QUESTIONS</span><span>·</span><span>${Math.round(candidate.probability * 100)}% MATCH SCORE</span></div><h2 class="question-title guess-title">Is your job <span class="title-mark">${esc(candidate.job.name)}</span>?</h2><p class="question-sub">If I missed, I’ll rule it out and use your next clues to improve the match.</p><div class="guess-actions"><button class="primary-btn" id="guess-yes" type="button">Yes, that’s it</button><button class="secondary-btn" id="guess-no" type="button">No, keep going</button></div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">${state.answers.length} CLUES COLLECTED</span></div></div>`;
+    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">MY GUESS</span><span>·</span><span>AFTER ${state.answers.length} CLUES</span></div><h2 class="question-title guess-title">Is your job <span class="title-mark">${esc(candidate.job.name)}</span>?</h2><p class="question-sub">If I missed, I’ll rule it out and use your next clues to improve the match.</p><div class="guess-actions"><button class="primary-btn" id="guess-yes" type="button">Yes, that’s it</button><button class="secondary-btn" id="guess-no" type="button">No, keep going</button></div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">${state.answers.length} CLUES COLLECTED</span></div></div>`;
     $('#guess-yes').addEventListener('click', () => showSavePrompt('guessed', candidate.job.name));
     $('#guess-no').addEventListener('click', () => {
       $('#guess-yes').disabled = true; $('#guess-no').disabled = true;
@@ -539,6 +540,12 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) stopTimer();
     else if (state.screen === 'question' && !state.locked) startTimer();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (!/^[1-5]$/.test(event.key) || state.screen !== 'question' || state.locked) return;
+    if (event.target instanceof HTMLElement && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+    const button = ui.content.querySelector(`.answer-btn[data-answer="${Number(event.key) - 1}"]`);
+    if (button && !button.disabled) { event.preventDefault(); button.click(); }
   });
   window.addEventListener('online', retryOutbox);
   $('#year').textContent = String(new Date().getFullYear());
