@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-Disallow: /supabase/
 Sitemap: https://careerladder.hazik.in/sitemap.xml

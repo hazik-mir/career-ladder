@@ -1,14 +1,24 @@
 # Career Ladder Game
 
-Static website for `careerladder.hazik.in`. Serve this folder from a static host with HTTPS and configure static hosting to return `404.html` for missing pages.
+A small static arcade game. It has a block-built host, a shuffled adaptive question pool, the five Akinator-style answers, a two-minute timer, Go Back, local offline-save queue, SEO metadata, sitemap, robots file, and 404 page.
 
-## Setup
+## Supabase setup
 
-1. Put `entry-music.mp3`, `happy.mp3`, `sad.mp3`, and `themesong.mp3` in `audio/`.
-2. Run `supabase/schema.sql` in the Supabase SQL editor.
-3. Set `supabaseUrl` and the public anon/publishable key in `config.js`. Do not put a service-role key in browser code.
-4. Deploy the folder and configure the custom domain. The canonical URL, sitemap, and robots file already use `https://careerladder.hazik.in`.
+The browser key in `config.js` is the public anon key and is safe to ship in a browser when Row Level Security is enabled. Never replace it with a `service_role` or secret key.
 
-The game has 120 distinct question phrasings. It picks the next work topic using weighted job candidates, then randomizes wording so rounds do not follow a fixed sequence. If the four MP3 files are missing, a built-in synthesized arcade melody plays instead. Anonymous question answers and optional job/name suggestions are written to Supabase after setup. A normalized job enters the trusted-job views only after at least four separate browser player IDs (one per browser profile); the game checks repeated question/answer patterns against those trusted jobs.
+1. Open the Supabase project matching the URL in `config.js`.
+2. In **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql).
+3. In **Project Settings → Data API**, make sure the `public` schema is exposed. The SQL grants the required table permissions and enables RLS.
+4. Refresh the site. The status should change from setup-needed to database-connected.
 
-This is a prototype learning rule, not identity-verified voting: anonymous browser submissions can be duplicated or manipulated. The name field is optional. Configure retention/privacy information appropriate to the deployment before collecting real player data.
+Completed game runs are inserted into `career_ladder_games`. Names and full answers are insert-only and cannot be read from the public site. The separate `career_ladder_job_votes` table contains only a normalized job title and a random browser voter ID. A job reaches the game’s accepted threshold after four distinct browser IDs vote for it. These votes are a casual popularity signal, not verified unique people; a visitor can reset browser storage.
+
+If the game shows **RUN DATABASE SETUP**, the tables are missing or not exposed. **CHECK DATABASE ACCESS** means Supabase rejected the anon role or the RLS policy. The game still runs and queues a completed run in local storage when the database is offline. Exact network errors are written to the browser developer console.
+
+## Local preview
+
+Serve this folder over HTTP (for example, with a local static file server) and open it in a browser. Audio begins after the Start button because browsers block unsolicited autoplay. The chiptune is synthesized locally, so no MP3 files or external audio service are required.
+
+## Deploy
+
+Upload the folder contents to the repository configured for GitHub Pages. Keep the domain’s `CNAME` file if the repository already has one. `careerladder.hazik.in` is already the canonical URL used by the metadata and sitemap.

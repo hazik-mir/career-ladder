@@ -1,1 +1,9 @@
-{"name":"Career Ladder Game","short_name":"Career Ladder","start_url":"/","display":"standalone","background_color":"#090b14","theme_color":"#090b14","description":"Think of your job and climb the Career Ladder."}
+{
+  "name": "Career Ladder — The Job Guessing Game",
+  "short_name": "Career Ladder",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111714",
+  "theme_color": "#111714",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
