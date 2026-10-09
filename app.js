@@ -2,6 +2,7 @@
   'use strict';
 
   const $ = (selector) => document.querySelector(selector);
+  const activeTyping = new WeakMap();
   const data = window.CAREER_LADDER_DATA;
   if (!data || !data.traits || !Array.isArray(data.jobs)) {
     console.error('Career Ladder data failed to load.');
@@ -12,7 +13,7 @@
     content: $('#content'), speech: $('#speech-text'), avatar: $('#avatar'), phase: $('#phase-label'),
     timer: $('#timer'), timerWrap: $('#timer-wrap'), round: $('#round-label'), questions: $('#question-count'),
     possible: $('#possible-count'), best: $('#best-guess'), progress: $('#progress-bar'), progressText: $('#progress-caption'),
-    climb: $('#climb-fill'), streak: $('#streak'), save: $('#save-status'), sound: $('#sound-toggle'), tip: $('#tip-text')
+    climb: $('#climb-fill'), streak: $('#streak'), save: $('#save-status'), tip: $('#tip-text')
   };
   const ANSWERS = ['Yes', 'No', 'I Don’t Know', 'Probably', 'Probably Not'];
   const ANSWER_LIKELIHOOD = [
@@ -28,14 +29,24 @@
   const OUTBOX_KEY = 'career-ladder-outbox-v2';
   const VOTER_KEY = 'career-ladder-voter-v2';
   const traits = data.traits;
+  const traitDomains = {
+    systems: new Set(['computer', 'technology', 'machinery', 'tools', 'science', 'research', 'numbers', 'money', 'law', 'inventory', 'strategy', 'architecture']),
+    people: new Set(['people', 'customer', 'care', 'education', 'communication', 'social', 'sales', 'hospitality', 'medicine', 'government', 'public', 'language']),
+    field: new Set(['outdoors', 'outdoors_team', 'physical', 'build', 'driving', 'travel', 'animals', 'agriculture', 'food', 'property', 'logistics', 'emergency', 'safety', 'security', 'uniform']),
+    creative: new Set(['words', 'creative', 'design', 'media', 'performance', 'beauty', 'sport', 'craft', 'products']),
+    operations: new Set(['independent', 'leadership', 'organization', 'desk', 'degree', 'night'])
+  };
+  function domainFor(trait) {
+    return Object.entries(traitDomains).find(([, members]) => members.has(trait))?.[0] || 'operations';
+  }
   const questionBank = Object.entries(traits).flatMap(([trait, phrasings]) => phrasings.map((text, index) => ({
-    id: `${trait}-${index + 1}`, trait, text: `Is it true that your job ${text}?`
+    id: `${trait}-${index + 1}`, trait, domain: domainFor(trait), text: `Is it true that your job ${text}?`
   })));
   const openingPrompts = [
-    { id: 'broad-digital', trait: 'broad-digital', tags: ['computer', 'technology', 'media', 'words', 'design', 'research', 'numbers'], phrases: ['Is your job mainly digital or computer-based?', 'Would you describe your work as mostly digital?'] },
-    { id: 'broad-technical', trait: 'broad-technical', tags: ['technology', 'tools', 'machinery', 'science', 'computer', 'architecture'], phrases: ['Does your job involve technical systems or specialist tools?', 'Would you describe your work as technical?'] },
-    { id: 'broad-people', trait: 'broad-people', tags: ['people', 'customer', 'care', 'education', 'communication', 'hospitality', 'social', 'sales'], phrases: ['Do you work directly with people most days?', 'Is your job mainly people-facing?'] },
-    { id: 'broad-hands-on', trait: 'broad-hands-on', tags: ['outdoors', 'physical', 'tools', 'build', 'agriculture', 'animals', 'driving', 'travel'], phrases: ['Is much of your work hands-on or outdoors?', 'Do you spend a lot of time doing practical work away from a desk?'] }
+    { id: 'broad-digital', trait: 'broad-digital', domain: 'systems', weights: { computer: .98, technology: .82, media: .56, design: .18, words: .12, research: .08, numbers: .06 }, phrases: ['Is your job mainly computer- or internet-based?', 'Do you use digital tools for most of your work?'] },
+    { id: 'broad-technical', trait: 'broad-technical', domain: 'systems', weights: { technology: .92, machinery: .88, tools: .66, science: .48, architecture: .48, computer: .32, driving: .12 }, phrases: ['Does your job involve technical systems or specialist tools?', 'Would you describe your work as technical?'] },
+    { id: 'broad-people', trait: 'broad-people', domain: 'people', weights: { people: .94, customer: .92, care: .86, education: .84, communication: .62, hospitality: .82, social: .9, sales: .66 }, phrases: ['Do you work directly with people most days?', 'Is your job mainly people-facing?'] },
+    { id: 'broad-hands-on', trait: 'broad-hands-on', domain: 'field', weights: { outdoors: .9, physical: .9, tools: .74, build: .78, agriculture: .9, animals: .74, driving: .62, food: .42 }, phrases: ['Is much of your work hands-on or outdoors?', 'Do you spend a lot of time doing practical work away from a desk?'] }
   ];
   const uniqueJobs = [...new Map(data.jobs.map(([name, tags]) => [name.toLowerCase(), {
     name, tags: new Set(tags.split(' ').filter(Boolean))
@@ -45,7 +56,7 @@
     screen: 'welcome', answers: [], guesses: [], used: new Set(), current: null,
     candidates: [], eliminatedGuesses: new Set(), seconds: LIMIT_SECONDS, elapsedSeconds: 0, timerId: null,
     locked: true, streak: 0, gameId: '', openingQuestions: [], lastGuessAt: 0,
-    audio: null, audioOn: false, musicId: null
+    currentDomain: '', domainTurns: 0, transitionId: null
   };
 
   const uuid = () => {
@@ -71,9 +82,24 @@
   function setFace(expression = 'neutral') {
     ui.avatar.className = `avatar avatar-${expression}`;
   }
+  function typeText(element, text, delay = 17) {
+    if (!element) return;
+    const previous = activeTyping.get(element);
+    if (previous) window.clearInterval(previous);
+    element.classList.add('typing-text');
+    element.textContent = '';
+    let cursor = 0;
+    const timer = window.setInterval(() => {
+      element.textContent = text.slice(0, ++cursor);
+      if (cursor >= text.length) {
+        window.clearInterval(timer); activeTyping.delete(element); element.classList.remove('typing-text');
+      }
+    }, delay);
+    activeTyping.set(element, timer);
+  }
   function say(text, expression = 'neutral') {
     setFace(expression);
-    ui.speech.textContent = text;
+    typeText(ui.speech, text);
   }
   function setSaveState(kind, text) {
     ui.save.classList.toggle('offline', kind === 'offline');
@@ -87,10 +113,13 @@
   }
   function resetRun() {
     stopTimer();
+    if (state.transitionId !== null) window.clearTimeout(state.transitionId);
+    state.transitionId = null;
     state.answers = []; state.guesses = []; state.used = new Set(); state.current = null;
     state.eliminatedGuesses = new Set(); state.candidates = baseCandidates();
     state.seconds = LIMIT_SECONDS; state.elapsedSeconds = 0; state.lastGuessAt = 0;
     state.openingQuestions = []; state.locked = true; state.streak = 0; state.gameId = uuid();
+    state.currentDomain = ''; state.domainTurns = 0;
     $('#timer').textContent = '05:00'; ui.timerWrap.classList.remove('active', 'low');
     ui.questions.textContent = '0'; ui.possible.textContent = String(uniqueJobs.length); ui.best.textContent = '—';
     ui.streak.textContent = '★ 0'; ui.climb.style.width = '0%';
@@ -102,42 +131,31 @@
   }
 
   function showWelcome() {
-    resetRun(); state.screen = 'welcome'; setPhase('WELCOME'); ui.round.textContent = 'READY PLAYER?';
-    say('Welcome to the Career Ladder. Pick a job and keep it secret.', 'neutral');
-    ui.content.innerHTML = `<div class="welcome-layout"><div class="welcome-copy"><h2>Climb the ladder.<br><span class="title-mark">Keep your job a secret.</span></h2><p>I’ll compare ${uniqueJobs.length.toLocaleString()} jobs. Start with broad clues, then get a fresh best guess every ten questions. You have five minutes, with extra time available if you need it.</p></div><button class="primary-btn" id="start-game" type="button">Start game →</button></div>`;
-    $('#start-game').addEventListener('click', startGame);
-  }
-
-  function startGame() {
-    resetRun();
-    state.audioOn = true;
-    setSoundButton(); startMusic();
-    showJobGate();
+    resetRun(); showJobGate();
   }
 
   function showJobGate() {
-    state.screen = 'gate'; state.locked = true; setPhase('QUICK CHECK'); ui.round.textContent = 'LEVEL 01 · JOB CHECK';
+    state.screen = 'gate'; state.locked = true; setPhase('QUICK CHECK'); ui.round.textContent = 'JOB CHECK';
     say('Hope you don’t have to hold your bladder, ’cause it’s time for the Career Ladder!', 'happy');
-    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">CHECKPOINT 01</span><span>·</span><span>ONE QUICK QUESTION</span></div><h2 class="question-title">Do you have a job?</h2><p class="question-sub">Think of a current job, a dream job, or any job you know well.</p><div class="guess-actions"><button class="primary-btn" id="job-yes" type="button">Yes — let’s play</button><button class="secondary-btn" id="job-no" type="button">No</button></div></div>`;
+    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">BEFORE WE START</span><span>·</span><span>ONE QUICK QUESTION</span></div><h2 class="question-title">Do you have a job?</h2><p class="question-sub">Think of a current job, a dream job, or any job you know well.</p><div class="guess-actions"><button class="primary-btn" id="job-yes" type="button">Yes — let’s play</button><button class="secondary-btn" id="job-no" type="button">No</button></div></div>`;
     $('#job-yes').addEventListener('click', beginQuestions);
     $('#job-no').addEventListener('click', showNoJob);
   }
 
   function showNoJob() {
-    stopTimer(); state.screen = 'no-job'; setPhase('NEED A JOB');
+    stopTimer(); ui.timerWrap.classList.remove('active', 'low'); state.screen = 'no-job'; setPhase('NEED A JOB');
     say('Ahhh! You need a job for this one.', 'sad');
-    ui.content.innerHTML = `<div class="result-panel"><h2 class="result-title">Ahhh! You need a job for this one.</h2><p class="result-copy">Come back when you have a current job, a dream job, or a job you want me to guess.</p><div class="action-row"><button class="primary-btn" id="back-to-welcome" type="button">Back to start</button></div></div>`;
-    $('#back-to-welcome').addEventListener('click', showWelcome);
+    ui.content.innerHTML = `<div class="result-panel"><h2 class="result-title">Ahhh! You need a job for this one.</h2><p class="result-copy">Come back when you have a current job, a dream job, or a job you want me to guess.</p><div class="action-row"><a class="primary-btn" href="index.html">Back to start</a></div></div>`;
   }
 
   function beginQuestions() {
     state.screen = 'question'; state.locked = false; state.answers = []; state.guesses = [];
     state.used.clear(); state.eliminatedGuesses.clear(); state.candidates = baseCandidates();
+    state.currentDomain = ''; state.domainTurns = 0;
     state.openingQuestions = openingPrompts.map((prompt) => ({
-      id: prompt.id, trait: prompt.trait, tags: prompt.tags,
+      id: prompt.id, trait: prompt.trait, domain: prompt.domain, weights: prompt.weights,
       text: prompt.phrases[Math.floor(Math.random() * prompt.phrases.length)]
     }));
-    state.openingQuestions = shuffled(state.openingQuestions);
     document.querySelectorAll('.mission-list li').forEach((item, i) => {
       item.classList.toggle('mission-active', i === 1); if (i === 0) item.classList.add('mission-done');
     });
@@ -153,14 +171,18 @@
     state.candidates.sort((a, b) => b.probability - a.probability);
   }
 
-  function jobMatches(job, question) {
-    const tags = question.tags || [question.trait];
-    return tags.some((tag) => job.tags.has(tag));
+  function jobMatchProbability(job, question) {
+    if (!question.weights) return job.tags.has(question.trait) ? .96 : .04;
+    let probabilityNotMatch = 1;
+    for (const [tag, weight] of Object.entries(question.weights)) {
+      if (job.tags.has(tag)) probabilityNotMatch *= 1 - weight;
+    }
+    return Math.min(.99, Math.max(.01, 1 - probabilityNotMatch));
   }
 
   function questionInformation(question) {
     let yes = 0;
-    for (const candidate of state.candidates) if (jobMatches(candidate.job, question)) yes += candidate.probability;
+    for (const candidate of state.candidates) yes += candidate.probability * jobMatchProbability(candidate.job, question);
     if (yes <= 0 || yes >= 1) return 0;
     const likelihoods = ANSWER_LIKELIHOOD.map(([givenMatch, givenNoMatch]) => ({
       givenMatch, givenNoMatch, probability: yes * givenMatch + (1 - yes) * givenNoMatch
@@ -186,7 +208,17 @@
     const ranked = pool.map((question) => ({ question, score: questionInformation(question) }))
       .sort((a, b) => b.score - a.score);
     const bestScore = ranked[0]?.score || 0;
-    const best = ranked.filter((entry) => entry.score >= bestScore - 0.1);
+    const alternateDomains = ranked.filter((entry) => entry.question.domain !== state.currentDomain);
+    const strongestAlternate = alternateDomains[0];
+    const stayInDomain = state.currentDomain && state.domainTurns < 3 && ranked.some((entry) =>
+      entry.question.domain === state.currentDomain && entry.score >= bestScore * 0.72);
+    const rankedPool = stayInDomain
+      ? ranked.filter((entry) => entry.question.domain === state.currentDomain)
+      : state.domainTurns >= 3 && strongestAlternate && strongestAlternate.score >= bestScore * 0.72
+        ? alternateDomains
+        : ranked;
+    const selectedBestScore = rankedPool[0]?.score || 0;
+    const best = rankedPool.filter((entry) => entry.score >= selectedBestScore - 0.1);
     const bestTraits = [...new Set(best.map((entry) => entry.question.trait))];
     const chosenTrait = bestTraits[Math.floor(Math.random() * bestTraits.length)];
     const variants = best.filter((entry) => entry.question.trait === chosenTrait);
@@ -201,19 +233,29 @@
       state.lastGuessAt = state.answers.length;
       showGuess(state.candidates[0]); return;
     }
-    const opening = state.openingQuestions.find((prompt) => !state.used.has(prompt.id));
-    const question = opening || chooseQuestion();
+    const fixedOpeners = state.openingQuestions.filter((prompt) => prompt.id === 'broad-digital' || prompt.id === 'broad-technical');
+    const firstClues = fixedOpeners.find((prompt) => !state.used.has(prompt.id));
+    const broadAlreadyUsed = state.openingQuestions.some((prompt) =>
+      (prompt.id === 'broad-people' || prompt.id === 'broad-hands-on') && state.used.has(prompt.id));
+    const broadFollowups = state.answers.length === 2 && !broadAlreadyUsed
+      ? state.openingQuestions.filter((prompt) => (prompt.id === 'broad-people' || prompt.id === 'broad-hands-on') && !state.used.has(prompt.id))
+      : [];
+    const adaptiveBroad = broadFollowups.length
+      ? broadFollowups.map((prompt) => ({ prompt, score: questionInformation(prompt) })).sort((a, b) => b.score - a.score)[0]?.prompt
+      : null;
+    const question = firstClues || adaptiveBroad || chooseQuestion();
     if (!question) { showSavePrompt('player_won', ''); return; }
     state.current = question; state.used.add(question.id); renderQuestion(question);
   }
 
   function renderQuestion(question) {
     state.screen = 'question'; state.current = question; state.locked = false;
-    setPhase('YOUR TURN'); ui.round.textContent = `LEVEL 02 · QUESTION ${String(state.answers.length + 1).padStart(2, '0')}`;
+    setPhase('YOUR TURN'); ui.round.textContent = `QUESTION ${String(state.answers.length + 1).padStart(2, '0')}`;
     say('Choose the answer that fits best. I’m listening.', 'curious');
     ui.timer.textContent = clockText(state.seconds); ui.timerWrap.classList.add('active');
     ui.timerWrap.classList.toggle('low', state.seconds <= 20); startTimer();
-    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">QUESTION ${String(state.answers.length + 1).padStart(2, '0')}</span><span>·</span><span>${state.candidates.length.toLocaleString()} JOBS ON THE MAP</span></div><h2 class="question-title">${esc(question.text)}</h2><p class="question-sub">Pick the closest answer. “Probably” and “I don’t know” still count.</p><div class="answers">${ANSWERS.map((answer, i) => `<button class="answer-btn" type="button" data-answer="${i}">${esc(answer)}</button>`).join('')}</div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">TIMER RUNNING</span></div></div>`;
+    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">QUESTION ${String(state.answers.length + 1).padStart(2, '0')}</span><span>·</span><span>${state.candidates.length.toLocaleString()} PROFILES IN PLAY</span></div><h2 class="question-title typing-text"></h2><p class="question-sub">Pick the closest answer. “Probably” and “I don’t know” still count.</p><div class="answers">${ANSWERS.map((answer, i) => `<button class="answer-btn" type="button" data-answer="${i}">${esc(answer)}</button>`).join('')}</div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">TIMER RUNNING</span></div></div>`;
+    typeText(ui.content.querySelector('.question-title'), question.text, 15);
     ui.content.querySelectorAll('.answer-btn').forEach((button) => button.addEventListener('click', () => handleAnswer(Number(button.dataset.answer), question)));
     $('#go-back').addEventListener('click', goBack);
   }
@@ -223,16 +265,19 @@
     const answer = ANSWERS[index];
     if (!answer) return;
     state.locked = true; stopTimer();
-    state.answers.push({ id: question.id, trait: question.trait, tags: question.tags, question: question.text, answer, at: new Date().toISOString() });
+    if (question.domain === state.currentDomain) state.domainTurns++;
+    else { state.currentDomain = question.domain || ''; state.domainTurns = 1; }
+    state.answers.push({ id: question.id, trait: question.trait, domain: question.domain || '', tags: question.tags, question: question.text, answer, at: new Date().toISOString() });
     const likelihood = ANSWER_LIKELIHOOD[index];
     for (const candidate of state.candidates) {
-      const match = jobMatches(candidate.job, question);
-      candidate.score += Math.log(match ? likelihood[0] : likelihood[1]);
+      const matchProbability = jobMatchProbability(candidate.job, question);
+      candidate.score += Math.log(matchProbability * likelihood[0] + (1 - matchProbability) * likelihood[1]);
     }
     normalizeCandidates(); state.streak++; ui.streak.textContent = `★ ${state.streak}`;
     ui.climb.style.width = `${Math.min(100, Math.round(state.answers.length / 25 * 100))}%`;
-    say(answer === 'No' ? 'Got it. I’ll take another route.' : 'Nice, that helps narrow it down.', answer === 'No' ? 'thinking' : 'happy');
-    updateStats(); askNext();
+    say(answer === 'No' ? 'Got it!' : 'That helps!', answer === 'No' ? 'thinking' : 'happy');
+    updateStats();
+    state.transitionId = window.setTimeout(() => { state.transitionId = null; askNext(); }, 340);
   }
 
   function rebuildCandidates() {
@@ -241,8 +286,8 @@
       const answerIndex = ANSWERS.indexOf(answer.answer);
       const likelihood = ANSWER_LIKELIHOOD[answerIndex];
       for (const candidate of state.candidates) {
-        const match = jobMatches(candidate.job, answer);
-        candidate.score += Math.log(match ? likelihood[0] : likelihood[1]);
+        const matchProbability = jobMatchProbability(candidate.job, answer);
+        candidate.score += Math.log(matchProbability * likelihood[0] + (1 - matchProbability) * likelihood[1]);
       }
     }
     normalizeCandidates();
@@ -253,6 +298,9 @@
     stopTimer();
     if (!state.answers.length) { showJobGate(); return; }
     const previous = state.answers.pop();
+    state.currentDomain = state.answers.at(-1)?.domain || '';
+    state.domainTurns = 0;
+    for (let index = state.answers.length - 1; index >= 0 && state.answers[index].domain === state.currentDomain; index--) state.domainTurns++;
     // Keep its ID marked used: Go Back lets the player change the old answer,
     // but the selector must not ask that same clue again later in the run.
     state.current = questionBank.find((question) => question.id === previous.id)
@@ -267,7 +315,7 @@
 
   function showGuess(candidate) {
     if (!candidate) { showSavePrompt('player_won', ''); return; }
-    stopTimer(); state.screen = 'guess'; state.locked = true; setPhase('FINAL GUESS'); ui.round.textContent = 'BOSS LEVEL · FINAL GUESS';
+    stopTimer(); ui.timerWrap.classList.remove('active', 'low'); state.screen = 'guess'; state.locked = true; setPhase('MY BEST GUESS'); ui.round.textContent = 'TIME TO GUESS';
     document.querySelectorAll('.mission-list li').forEach((item, i) => {
       item.classList.toggle('mission-active', i === 2); if (i < 2) item.classList.add('mission-done');
     });
@@ -275,13 +323,16 @@
     ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">GUESS AFTER ${state.answers.length} QUESTIONS</span><span>·</span><span>${Math.round(candidate.probability * 100)}% MATCH SCORE</span></div><h2 class="question-title guess-title">Is your job <span class="title-mark">${esc(candidate.job.name)}</span>?</h2><p class="question-sub">If I missed, I’ll rule it out and use your next clues to improve the match.</p><div class="guess-actions"><button class="primary-btn" id="guess-yes" type="button">Yes, that’s it</button><button class="secondary-btn" id="guess-no" type="button">No, keep going</button></div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">${state.answers.length} CLUES COLLECTED</span></div></div>`;
     $('#guess-yes').addEventListener('click', () => showSavePrompt('guessed', candidate.job.name));
     $('#guess-no').addEventListener('click', () => {
+      $('#guess-yes').disabled = true; $('#guess-no').disabled = true;
       state.eliminatedGuesses.add(candidate.job.name.toLowerCase());
       state.guesses.push({ id: `guess-${candidate.job.name.toLowerCase()}`, trait: 'guess', question: `Is your job ${candidate.job.name}?`, answer: 'No', at: new Date().toISOString() });
       state.candidates = state.candidates.filter((item) => item.job.name !== candidate.job.name);
-      state.screen = 'question'; state.locked = false;
+      state.screen = 'thinking'; state.locked = true; say('Hmm, I missed. Let me think.', 'thinking');
       updateStats();
       if (!state.candidates.length) { showSavePrompt('player_won', ''); return; }
-      askNext();
+      state.transitionId = window.setTimeout(() => {
+        state.transitionId = null; state.screen = 'question'; state.locked = false; askNext();
+      }, 460);
     });
     $('#go-back').addEventListener('click', () => {
       state.screen = 'question'; state.locked = false;
@@ -302,7 +353,7 @@
   }
 
   function showSavePrompt(outcome, guessedJob) {
-    stopTimer(); state.screen = 'save'; state.locked = true; setPhase('SAVE YOUR RUN'); ui.round.textContent = outcome === 'guessed' ? 'BOT WINS · SCORECARD' : 'YOU WIN · SCORECARD';
+    stopTimer(); ui.timerWrap.classList.remove('active', 'low'); state.screen = 'save'; state.locked = true; setPhase('SAVE YOUR RUN'); ui.round.textContent = outcome === 'guessed' ? 'BOT WINS · SCORECARD' : 'YOU WIN · SCORECARD';
     const won = outcome === 'player_won';
     say(won ? 'Alright, you win! What job did I miss, and what name should I put on the scorecard?' : `Nailed it! I guessed ${guessedJob}. What name should I put on the scorecard?`, won ? 'happy' : 'happy');
     const prompt = won ? `<input class="text-input" name="job" id="job-input" maxlength="80" placeholder="What’s your job?" autocomplete="organization-title" required>` : `<div class="answer-recap">Job guessed: <strong>${esc(guessedJob)}</strong></div>`;
@@ -336,7 +387,7 @@
       created_at: new Date().toISOString()
     };
     const vote = { job_key: normalizedJob, voter_id: getVoterId() };
-    say(outcome === 'guessed' ? `I guessed ${cleanJob}. Nice round, ${playerName}!` : `Victory, ${playerName}! The ladder learned ${cleanJob}.`, 'happy');
+    say(outcome === 'guessed' ? `I guessed ${cleanJob}. Nice round, ${playerName}!` : `Victory, ${playerName}! I learned ${cleanJob}.`, 'happy');
     ui.content.innerHTML = `<div class="result-panel"><h2 class="result-title">${outcome === 'guessed' ? 'Nailed it!' : 'You beat the bot!'}</h2><p class="result-copy">Thanks, <strong>${esc(playerName)}</strong>. The job was <strong>${esc(cleanJob)}</strong>.</p><div class="answer-recap">${allAnswers.length} answers · DATABASE SAVE: <span id="final-save-status">saving…</span></div><div class="action-row"><button class="primary-btn" id="play-again" type="button">Play again</button><button class="secondary-btn" id="share-result" type="button">Copy result</button></div></div>`;
     $('#play-again').addEventListener('click', showWelcome);
     $('#share-result').addEventListener('click', async () => {
@@ -419,14 +470,8 @@
     try {
       await insertOnce('career_ladder_games', game);
       await insertOnce('career_ladder_job_votes', vote);
-      let countLabel = 'vote counted';
-      try {
-        const result = await dbRequest(`career_ladder_job_votes?select=voter_id&job_key=eq.${encodeURIComponent(vote.job_key)}`, { headers: { Prefer: 'count=exact', Range: '0-0' } });
-        const count = Number(result.response.headers.get('content-range')?.split('/').pop());
-        if (Number.isFinite(count)) countLabel = count >= 4 ? `job verified by ${count} players` : `${count}/4 confirmations`;
-      } catch { /* The game and answer record are already saved. */ }
-      if (status) status.textContent = `saved · ${countLabel}`;
-      setSaveState('', `SAVED · ${countLabel.toUpperCase()}`);
+      if (status) status.textContent = 'saved';
+      setSaveState('', 'RUN SAVED');
     } catch (error) {
       console.error('[Career Ladder] Could not save the run:', error.details || error.message);
       const queued = queueGame(game, vote);
@@ -491,40 +536,6 @@
     ui.tip.textContent = tips[state.answers.length % tips.length];
   }
 
-  function setSoundButton() {
-    ui.sound.innerHTML = state.audioOn ? '♫ <span>Sound on</span>' : '♫ <span>Sound off</span>';
-    ui.sound.setAttribute('aria-label', state.audioOn ? 'Turn sound off' : 'Turn sound on');
-  }
-  function startMusic() {
-    if (!state.audioOn || state.musicId !== null) return;
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) { setSoundButton(); return; }
-      if (!state.audio) state.audio = new AudioContext();
-      if (state.audio.state === 'suspended') state.audio.resume();
-      const notes = [261.63, 293.66, 329.63, 392, 329.63, 293.66, 261.63, 220, 246.94, 293.66, 329.63, 293.66, 246.94, 220, 196, 220];
-      let index = 0;
-      state.musicId = window.setInterval(() => {
-        if (!state.audio || !state.audioOn || state.audio.state !== 'running') return;
-        const oscillator = state.audio.createOscillator(); const volume = state.audio.createGain();
-        oscillator.type = 'sine'; oscillator.frequency.value = notes[index++ % notes.length];
-        volume.gain.setValueAtTime(.0001, state.audio.currentTime);
-        volume.gain.exponentialRampToValueAtTime(.004, state.audio.currentTime + .08);
-        volume.gain.exponentialRampToValueAtTime(.0001, state.audio.currentTime + .46);
-        oscillator.connect(volume); volume.connect(state.audio.destination);
-        oscillator.start(); oscillator.stop(state.audio.currentTime + .48);
-      }, 520);
-    } catch (error) { console.warn('[Career Ladder] Audio is unavailable:', error.message); }
-  }
-  function stopMusic() {
-    if (state.musicId !== null) { window.clearInterval(state.musicId); state.musicId = null; }
-    if (state.audio && state.audio.state === 'running') state.audio.suspend();
-  }
-  ui.sound.addEventListener('click', () => {
-    state.audioOn = !state.audioOn; setSoundButton();
-    if (state.audioOn) startMusic(); else stopMusic();
-  });
-
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) stopTimer();
     else if (state.screen === 'question' && !state.locked) startTimer();
@@ -532,7 +543,7 @@
   window.addEventListener('online', retryOutbox);
   $('#year').textContent = String(new Date().getFullYear());
   setSaveState('offline', 'CHECKING DATABASE');
-  showWelcome();
+  showJobGate();
   checkDatabase();
 })();
 
