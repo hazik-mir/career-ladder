@@ -85,7 +85,8 @@
 
   function setPhase(label) { ui.phase.textContent = label; }
   function setFace(expression = 'neutral') {
-    if (ui.avatar) ui.avatar.setAttribute('class', `avatar avatar-${expression}`);
+    if (!ui.avatar) return;
+    ui.avatar.setAttribute('class', `avatar avatar-${expression}`);
   }
   function typeText(element, text, delay = 17) {
     if (!element) return;
@@ -103,8 +104,11 @@
     activeTyping.set(element, timer);
   }
   function say(text, expression = 'neutral') {
-    setFace(expression);
-    typeText(ui.speech, text);
+    try { setFace(expression); }
+    catch (error) { console.warn('[Career Ladder] Host expression could not update:', error); }
+    if (!ui.speech) return;
+    try { typeText(ui.speech, text); }
+    catch (error) { console.warn('[Career Ladder] Host speech could not animate:', error); ui.speech.textContent = text; }
   }
   function setSaveState(kind, text) {
     ui.save.classList.toggle('offline', kind === 'offline');
