@@ -3,8 +3,7 @@
   "short_name": "Career Ladder",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#e6f1ff",
-  "theme_color": "#dcecff",
+  "background_color": "#e9edff",
+  "theme_color": "#e5e8ff",
   "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }
-
