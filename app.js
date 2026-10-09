@@ -2,301 +2,464 @@
   'use strict';
 
   const $ = (selector) => document.querySelector(selector);
+  const data = window.CAREER_LADDER_DATA;
+  if (!data || !data.traits || !Array.isArray(data.jobs)) {
+    console.error('Career Ladder data failed to load.');
+    return;
+  }
+
   const ui = {
-    content: $('#content'), speech: $('#speech-text'), speechBox: $('#speech'), avatar: $('#avatar'), phase: $('#phase-label'),
+    content: $('#content'), speech: $('#speech-text'), avatar: $('#avatar'), phase: $('#phase-label'),
     timer: $('#timer'), timerWrap: $('#timer-wrap'), round: $('#round-label'), questions: $('#question-count'),
     possible: $('#possible-count'), best: $('#best-guess'), progress: $('#progress-bar'), progressText: $('#progress-caption'),
     climb: $('#climb-fill'), streak: $('#streak'), save: $('#save-status'), sound: $('#sound-toggle'), tip: $('#tip-text')
   };
   const ANSWERS = ['Yes', 'No', 'I Don’t Know', 'Probably', 'Probably Not'];
-  const ANSWER_WEIGHTS = { 'Yes': 0.96, 'No': 0.04, 'I Don’t Know': 0.5, 'Probably': 0.75, 'Probably Not': 0.25 };
-  const LIMIT = 120;
-  const traits = {
-    people:['works closely with people','helps people solve a problem','talks with people throughout the day'], computer:['uses a computer for much of the work','works with digital tools every day','spends a lot of the shift on a computer'],
-    outdoors:['often works outdoors','works outside at least some days','spends time working outside'], physical:['does hands-on physical work','is on their feet for much of the day','uses their hands more than a keyboard'],
-    tools:['uses specialist tools or equipment','works with tools as part of the job','needs practical equipment to do the work'], numbers:['works with numbers or measurements','uses maths regularly at work','checks figures as part of the job'],
-    words:['writes or edits a lot','works with words most days','creates or checks written content'], creative:['makes original creative work','uses imagination to solve tasks','designs or creates things'],
-    care:['looks after people’s health or wellbeing','provides care or support','helps someone feel better or safer'], education:['teaches or trains other people','helps people learn a skill','explains ideas as a key part of the job'],
-    uniform:['usually wears a uniform or work gear','has a recognizable work uniform','wears protective or job-specific clothing'], safety:['is responsible for keeping people safe','follows strict safety procedures','has safety as a central part of the work'],
-    customer:['serves customers or clients directly','works with customers face to face','helps customers choose or use something'], outdoors_team:['works as part of a crew outside','coordinates with a team on site','often collaborates in person'],
-    independent:['spends much of the day working independently','has solo tasks that need focus','often works without direct supervision'], leadership:['leads people or makes important decisions','is responsible for a team or project','organizes other people’s work'],
-    travel:['travels between locations for work','works in different places during a week','needs to go out to meet people or reach sites'], driving:['drives as a regular part of the job','uses a vehicle to do the work','spends time travelling by road for work'],
-    food:['works with food or drinks','prepares, serves, or handles food','is part of food service or production'], animals:['works with animals','cares for animals as part of the job','handles animals or their needs'],
-    money:['handles budgets, payments, or financial records','works with money or accounts','helps people make financial decisions'], law:['uses laws, rules, or regulations often','works with legal rules and procedures','must know formal rules to do the work'],
-    build:['builds, repairs, or installs things','helps make or fix physical structures','creates or repairs things that people use'], design:['plans how products or spaces should look or work','designs objects, systems, or spaces','turns a brief into a visual or practical design'],
-    science:['uses science or research methods','tests ideas or samples','studies evidence to answer questions'], machinery:['operates large machines or technical equipment','maintains complex equipment','works with mechanical or electrical systems'],
-    medicine:['works in a medical or clinical setting','uses medical knowledge at work','helps diagnose or treat health problems'], research:['investigates questions before deciding','collects evidence or runs experiments','spends time researching a subject'],
-    public:['serves the public or community','works in a public service','helps a whole community rather than one client'], performance:['performs or presents in front of an audience','appears on stage, screen, or mic','entertains or presents to an audience'],
-    media:['creates or edits media','works with video, audio, or images','publishes content for an audience'], night:['may work evenings, nights, or weekends','has shifts outside regular office hours','sometimes works when most people are off'],
-    desk:['usually works at a desk or workstation','spends most of the day in one work area','has a mainly indoor workstation'], degree:['usually needs specialist higher education','requires a professional qualification','normally takes years of formal study'],
-    sales:['persuades people or sells products','helps people decide to buy something','has sales targets or commercial goals'], products:['makes, checks, or manages products','works with things that are manufactured','helps a product go from idea to customer'],
-    organization:['plans schedules, bookings, or logistics','keeps projects or operations organized','coordinates timing, records, or resources'], communication:['explains complex information to others','communicates with many different groups','uses clear communication as a core skill'],
-    technology:['works with technology beyond ordinary office tools','builds, installs, or supports technology','solves technical problems with devices or systems'], logistics:['moves goods, people, or supplies where they need to go','coordinates deliveries or supply chains','works with shipping, inventory, or transport'],
-    agriculture:['grows crops or works with plants','works in farming, forestry, or horticulture','cares for land or growing things'], property:['works with homes, buildings, or land','helps people buy, sell, or manage property','maintains buildings or property'],
-    hospitality:['helps guests or visitors have a good experience','works in a hotel, venue, or visitor service','welcomes and supports guests'], government:['works for a government or public agency','helps deliver official services','follows public sector procedures'],
-    emergency:['responds to urgent situations','may need to act quickly in an emergency','helps when something goes wrong unexpectedly'], beauty:['works with personal appearance or grooming','helps people with hair, skin, or style','provides beauty or grooming services'],
-    sport:['works in sports, fitness, or exercise','helps people train or stay active','has a connection to sport or physical training'], security:['protects places, information, or people','checks access or monitors security','prevents theft or unauthorized access'],
-    architecture:['plans buildings or large spaces','draws or reviews building plans','helps design the built environment'], language:['uses more than one language at work','translates or interprets communication','works across language or cultural barriers'],
-    inventory:['tracks supplies, stock, or equipment','checks what is available and what is needed','manages physical inventory'], strategy:['plans long-term goals or business direction','uses analysis to recommend next steps','helps organizations make strategic decisions'],
-    craft:['makes detailed items by hand','needs precision and patience to create things','works with a specific craft or material'], social:['supports people facing personal or social challenges','connects people to services or resources','helps individuals through difficult situations']
+  const WEIGHT = { 'Yes': .96, 'No': .04, 'I Don’t Know': .5, 'Probably': .75, 'Probably Not': .25 };
+  const LIMIT_SECONDS = 120;
+  const OUTBOX_KEY = 'career-ladder-outbox-v2';
+  const VOTER_KEY = 'career-ladder-voter-v2';
+  const traits = data.traits;
+  const questionBank = Object.entries(traits).flatMap(([trait, phrasings]) => phrasings.map((text, index) => ({
+    id: `${trait}-${index + 1}`, trait, text: `Is it true that your job ${text}?`
+  })));
+  const uniqueJobs = [...new Map(data.jobs.map(([name, tags]) => [name.toLowerCase(), {
+    name, tags: new Set(tags.split(' ').filter(Boolean))
+  }])).values()];
+
+  const state = {
+    screen: 'welcome', answers: [], guesses: [], used: new Set(), current: null,
+    candidates: [], eliminatedGuesses: new Set(), seconds: LIMIT_SECONDS, timerId: null,
+    locked: true, streak: 0, gameId: '', audio: null, audioOn: false, musicId: null
   };
-  const jobs = [
-    ['Software developer','computer technology creative independent words'],['Teacher','people education communication organization'],['Nurse','people care medicine uniform safety'],['Doctor','people care medicine science degree'],['Electrician','tools physical build safety technology'],['Plumber','tools physical build safety'],['Carpenter','tools physical build craft'],['Chef','food physical creative night tools'],['Baker','food physical craft products'],['Architect','design build computer architecture degree'],['Graphic designer','design creative computer media'],['Artist','creative independent craft performance'],['Actor','performance creative words'],['Musician','performance creative independent'],['Writer','words creative independent computer'],['Journalist','words research communication travel media'],['Photographer','creative media travel technology'],['Filmmaker','media creative leadership technology'],['Accountant','numbers money computer desk degree'],['Financial adviser','money numbers people communication degree'],['Lawyer','law words research people degree'],['Police officer','public safety uniform emergency people'],['Firefighter','emergency safety uniform physical public'],['Paramedic','emergency care medicine safety driving'],['Dentist','care medicine tools people degree'],['Pharmacist','medicine science people safety degree'],['Veterinarian','animals care medicine science degree'],['Veterinary nurse','animals care medicine people'],['Mechanic','tools physical machinery technology'],['Civil engineer','build numbers tools safety degree'],['Mechanical engineer','machinery technology numbers design degree'],['Data analyst','computer numbers research strategy'],['Scientist','science research computer degree'],['Lab technician','science tools safety research'],['Researcher','research science computer words'],['UX designer','design computer research creative'],['Product manager','products leadership organization strategy computer'],['Project manager','leadership organization communication computer'],['Business analyst','numbers strategy computer communication'],['Marketing manager','creative sales media strategy leadership'],['Sales representative','sales people travel communication'],['Retail worker','customer sales physical products'],['Customer support agent','customer communication computer people'],['Chef de partie','food physical tools night'],['Hotel manager','hospitality leadership organization people'],['Flight attendant','travel hospitality safety uniform people'],['Pilot','travel safety technology degree'],['Train driver','driving safety technology'],['Truck driver','driving logistics independent'],['Delivery courier','driving logistics physical'],['Farmer','agriculture physical machinery outdoors'],['Gardener','agriculture physical outdoors craft'],['Construction worker','build physical tools safety outdoors'],['Builder','build physical tools safety outdoors'],['Surveyor','outdoors numbers tools property'],['Real estate agent','property sales people travel communication'],['Librarian','words organization public education'],['Social worker','social people communication public'],['Counsellor','social people care communication degree'],['Psychologist','care research people science degree'],['Therapist','care people sport communication degree'],['Fitness trainer','sport people physical education'],['Personal trainer','sport people physical education'],['Hairdresser','beauty people creative customer'],['Barber','beauty people customer craft'],['Makeup artist','beauty creative performance'],['Fashion designer','design creative products computer'],['Tailor','craft physical design products'],['Interior designer','design creative property computer'],['UX researcher','research design computer communication'],['IT support specialist','technology computer communication customer'],['Cybersecurity analyst','technology computer security research'],['Network engineer','technology computer tools safety'],['Web designer','computer design creative technology'],['Animator','media creative computer design'],['Game designer','creative computer design technology'],['Game developer','computer technology creative'],['Translator','language words communication independent'],['Interpreter','language people communication travel'],['Copywriter','words creative sales computer'],['Editor','words media computer independent'],['News presenter','media communication performance words'],['Radio host','media performance communication words'],['Event planner','organization hospitality communication creative'],['Wedding planner','organization hospitality creative people'],['Logistics coordinator','logistics organization computer communication'],['Warehouse worker','logistics physical inventory machinery'],['Supply chain manager','logistics leadership inventory strategy'],['Police detective','law research public security'],['Security guard','security safety public uniform'],['Military officer','safety leadership uniform public'],['Postal worker','logistics driving public organization'],['Flight dispatcher','logistics travel organization safety'],['Urban planner','architecture strategy public design'],['Professor','education research words degree'],['School principal','education leadership organization public'],['Teaching assistant','education people communication'],['Midwife','care medicine people safety'],['Physiotherapist','care sport people medicine'],['Occupational therapist','care people physical communication'],['Optometrist','medicine care science people'],['Paramedic driver','emergency driving care safety'],['Emergency dispatcher','emergency communication organization public'],['Park ranger','outdoors public safety animals'],['Forester','agriculture outdoors science public'],['Marine biologist','science animals research outdoors'],['Veterinary surgeon','animals medicine care science'],['Food scientist','food science research products'],['Quality inspector','products tools numbers safety'],['Factory operator','machinery products physical safety'],['Machinist','machinery tools physical numbers'],['Welder','tools build physical safety'],['Roofer','build outdoors physical safety'],['Painter and decorator','build creative physical craft'],['Bricklayer','build physical craft outdoors'],['Locksmith','tools safety craft customer'],['Appliance repair technician','tools machinery technology customer'],['Plasterer','build physical craft'],['Glazier','build tools physical safety'],['Crane operator','machinery safety physical tools'],['Bus driver','driving public safety hospitality'],['Taxi driver','driving customer travel independent'],['Chef owner','food leadership sales creative'],['Restaurant server','food customer hospitality night'],['Barista','food customer hospitality'],['Bartender','food customer hospitality night'],['Hotel receptionist','hospitality customer organization communication'],['Tour guide','travel public communication education'],['Travel agent','travel customer organization sales'],['Museum curator','education research public organization'],['Archivist','words research organization computer'],['Museum educator','education public communication creative'],['Public relations specialist','communication words strategy media'],['Human resources manager','people leadership organization communication'],['Recruiter','people sales communication organization'],['Operations manager','leadership organization strategy numbers'],['Executive assistant','organization communication computer leadership'],['Office manager','organization computer leadership customer'],['Bookkeeper','numbers money computer organization'],['Actuary','numbers science research money computer'],['Insurance broker','money sales people communication'],['Insurance claims adjuster','money research numbers communication travel'],['Bank teller','money customer numbers safety'],['Investment analyst','money numbers research computer strategy'],['Economist','numbers research strategy science degree'],['Statistician','numbers research science computer degree'],['Political scientist','research government strategy words degree'],['Civil servant','government organization public words'],['Policy analyst','government research strategy words'],['Diplomat','government language travel communication'],['Judge','law leadership public words degree'],['Paralegal','law words research organization'],['Court reporter','law words technology independent'],['Forensic scientist','science law research safety'],['Detective','law research security public'],['Corrections officer','safety uniform public people'],['Lifeguard','safety sport public physical'],['Personal care aide','care people physical safety'],['Childcare worker','care education people safety'],['Nanny','care education people independent'],['Elder care worker','care people physical safety'],['Community health worker','care public people communication'],['Nutritionist','food care science communication'],['Dietitian','food care science people degree'],['Chef instructor','food education creative'],['Coach','sport education leadership people'],['Sports referee','sport safety public'],['Athletic trainer','sport care medicine physical'],['Dancer','performance sport creative physical'],['Choreographer','performance creative leadership sport'],['Sculptor','craft creative physical'],['Jeweler','craft creative products physical'],['Potter','craft creative physical'],['Florist','agriculture creative customer craft'],['Landscape architect','agriculture design outdoors architecture'],['Horticulturist','agriculture science outdoors craft'],['Pest control technician','safety tools outdoors science'],['Fisher','outdoors physical animals machinery'],['Commercial diver','outdoors safety physical tools'],['Commercial pilot','travel safety technology degree'],['Air traffic controller','travel safety communication technology'],['Aircraft mechanic','machinery technology safety tools'],['Ship captain','travel leadership safety outdoors'],['Ship engineer','machinery technology safety travel'],['Railway engineer','machinery safety technology'],['Automotive engineer','machinery design technology products'],['Auto body technician','tools physical craft products'],['Tire technician','tools physical machinery'],['Service technician','tools technology customer travel'],['Solar installer','build outdoors technology safety'],['Wind turbine technician','machinery outdoors technology safety'],['Renewable energy engineer','technology science design strategy'],['Environmental scientist','science outdoors research public'],['Environmental consultant','science research communication travel'],['Geologist','science outdoors research tools'],['Meteorologist','science research communication technology'],['Astronomer','science research technology degree'],['Biologist','science research animals degree'],['Chemist','science research tools degree'],['Physicist','science research numbers degree'],['Microbiologist','science research medicine tools'],['Hydrologist','science outdoors research numbers'],['Geographer','science research outdoors computer'],['Cartographer','design geography computer science'],['GIS analyst','computer numbers outdoors technology'],['Town planner','architecture public strategy design'],['Building inspector','build safety tools property'],['Building surveyor','property build numbers tools'],['Quantity surveyor','numbers build money property'],['Building services engineer','build technology design numbers'],['Structural engineer','build numbers safety design'],['Land surveyor','outdoors numbers property tools'],['Valuer','property numbers research'],['Property manager','property organization customer leadership'],['Letting agent','property sales customer organization'],['Estate agent','property sales people travel'],['Auctioneer','sales performance property communication'],['Retail buyer','products sales numbers strategy'],['Merchandiser','products design retail numbers'],['Visual merchandiser','design products creative customer'],['E-commerce manager','computer products sales strategy'],['SEO specialist','computer words strategy research'],['Social media manager','media words creative strategy computer'],['Content creator','media creative performance computer'],['Streamer','media performance computer creative'],['Podcast producer','media creative technology organization'],['Sound engineer','media technology tools creative'],['Lighting technician','performance technology tools safety'],['Stage manager','performance leadership organization safety'],['Theatre director','performance leadership creative communication'],['Voice actor','performance creative words'],['Voice coach','education performance communication'],['Illustrator','creative design media independent'],['Comic artist','creative design words media'],['Novelist','words creative independent'],['Poet','words creative independent'],['Technical writer','words technology computer communication'],['Grant writer','words research money communication'],['Speechwriter','words communication government creative'],['Proofreader','words computer independent'],['Linguist','language research words science'],['Sign language interpreter','language people communication public'],['Localization specialist','language technology words computer'],['Customs officer','government safety travel public'],['Immigration officer','government communication law public'],['Border patrol officer','government safety outdoors uniform'],['Postal sorter','logistics physical organization'],['Freight forwarder','logistics travel organization communication'],['Import/export specialist','logistics travel organization words'],['Procurement officer','products money organization strategy'],['Inventory clerk','inventory organization computer numbers'],['Stock controller','inventory products numbers computer'],['Purchasing manager','products money strategy leadership'],['Dispatcher','logistics communication organization'],['Fleet manager','driving logistics leadership organization'],['Transport planner','logistics numbers strategy public'],['Bus mechanic','machinery tools driving safety'],['Bicycle mechanic','tools physical machinery craft'],['Bike courier','driving outdoors physical logistics'],['Rideshare driver','driving customer travel independent'],['Valet','driving hospitality customer'],['Parking attendant','customer safety public'],['Traffic warden','public safety outdoors'],['Road worker','build outdoors safety physical'],['Highway engineer','build numbers safety outdoors'],['Railway conductor','travel public safety communication'],['Train mechanic','machinery tools safety technology'],['Subway operator','driving safety public technology'],['Metro station agent','customer public safety communication'],['Port worker','logistics outdoors physical machinery'],['Dockworker','logistics physical outdoors machinery'],['Crane technician','machinery tools safety technology'],['Airport ground crew','travel outdoors physical safety'],['Baggage handler','travel physical logistics'],['Aircraft cabin cleaner','travel physical hospitality'],['Airline customer service agent','travel customer communication'],['Airport security screener','travel security safety public'],['Aviation safety inspector','travel safety research technology'],['Airline pilot','travel safety technology degree'],['Cabin crew manager','travel leadership hospitality safety'],['Hotel housekeeper','hospitality physical organization'],['House cleaner','physical customer independent'],['Janitor','physical tools safety'],['Facilities manager','organization tools leadership property'],['Building caretaker','property tools physical customer'],['Handyperson','tools physical build customer'],['Home inspector','property tools numbers safety'],['Energy auditor','numbers property science research'],['Fire safety inspector','safety tools public property'],['Occupational safety specialist','safety research government communication'],['Risk manager','strategy safety numbers research'],['Compliance officer','law organization research numbers'],['Tax adviser','money numbers law communication'],['Tax preparer','money numbers computer organization'],['Payroll specialist','numbers money computer organization'],['Auditor','numbers research money organization'],['Forensic accountant','numbers money research law'],['Credit analyst','money numbers research computer'],['Loan officer','money sales customer numbers'],['Mortgage adviser','property money sales people'],['Fundraiser','sales communication public strategy'],['Charity worker','public social communication people'],['Volunteer coordinator','organization public people communication'],['Nonprofit director','leadership public strategy organization'],['Community organizer','public people strategy communication'],['Youth worker','social education people public'],['Probation officer','law social public communication'],['Rehabilitation counsellor','care social people communication'],['Career counsellor','education people communication strategy'],['Job coach','education people communication social'],['Academic adviser','education organization people communication'],['Admissions officer','education organization communication'],['Exam invigilator','education safety organization'],['Education researcher','education research science words'],['Curriculum designer','education design words strategy'],['Online tutor','education computer communication'],['Language teacher','education language communication'],['Music teacher','education performance communication'],['Art teacher','education creative communication'],['Driving instructor','education driving safety people'],['Flight instructor','education travel safety technology'],['Apprenticeship mentor','education tools people communication'],['Corporate trainer','education leadership communication'],['Instructional designer','education design computer creative'],['Learning technologist','education technology computer design'],['School counsellor','education care people communication'],['Special education teacher','education care people communication'],['Sign language teacher','language education communication'],['Librarian assistant','education organization public'],['Library technician','words technology public organization'],['Book editor','words media organization'],['Literary agent','words sales communication'],['Publisher','words leadership products strategy'],['Print technician','products tools technology craft'],['Typesetter','words computer products design'],['Copy editor','words organization computer'],['Fact checker','research words media'],['News photographer','media travel creative'],['Sports journalist','words sport media travel'],['Investigative journalist','words research law media'],['Weather presenter','media communication science'],['Podcast host','media performance communication'],['Video editor','media computer creative'],['Sound editor','media technology computer'],['Colorist','media creative computer'],['VFX artist','media creative computer technology'],['3D artist','creative design computer technology'],['Motion designer','creative design media computer'],['Game artist','creative design computer technology'],['Level designer','creative design computer technology'],['Narrative designer','words creative computer game'],['Game tester','technology computer products independent'],['QA tester','technology computer products research'],['Software tester','technology computer research'],['DevOps engineer','technology computer machinery strategy'],['Cloud engineer','technology computer strategy'],['Database administrator','technology computer numbers organization'],['Systems administrator','technology computer tools safety'],['Help desk technician','technology computer customer communication'],['Computer repair technician','technology tools computer customer'],['Mobile app developer','technology computer creative'],['AI engineer','technology computer science research'],['Machine learning engineer','technology computer numbers research'],['Robotics engineer','technology machinery design science'],['Embedded systems engineer','technology computer machinery design'],['Hardware engineer','technology tools design products'],['Electronics technician','technology tools machinery safety'],['Telecom technician','technology tools travel safety'],['Telecommunications engineer','technology numbers design communication'],['Broadcast engineer','media technology tools safety'],['Network administrator','technology computer safety organization'],['Web developer','technology computer design'],['Front-end developer','technology computer design creative'],['Back-end developer','technology computer numbers'],['Mobile developer','technology computer products'],['Database developer','technology computer numbers'],['Computer scientist','technology science research degree'],['Information security officer','technology security government'],['Privacy officer','law technology research communication'],['Data scientist','numbers science computer research'],['Business intelligence analyst','numbers strategy computer research'],['Operations research analyst','numbers research strategy computer'],['Market researcher','research sales numbers communication'],['Consumer insights analyst','research numbers strategy customer'],['Brand strategist','creative strategy communication sales'],['Advertising account manager','sales creative communication organization'],['Media buyer','media numbers sales strategy'],['Email marketing specialist','computer words sales strategy'],['Publicist','media communication words strategy'],['Talent agent','sales performance people communication'],['Casting director','performance leadership creative communication'],['Talent manager','performance leadership people strategy'],['Sports agent','sport sales law communication'],['Athlete','sport performance physical'],['Professional gamer','performance technology computer sport'],['Esports coach','sport education technology leadership'],['Sports commentator','sport performance communication'],['Umpire','sport safety public'],['Stunt performer','performance physical safety'],['Circus performer','performance physical creative'],['Magician','performance creative communication'],['Comedian','performance creative words'],['Puppeteer','performance craft creative'],['Model','performance creative independent'],['Fashion stylist','beauty creative customer'],['Personal shopper','customer sales beauty'],['Image consultant','beauty communication customer'],['Cosmetologist','beauty people care customer'],['Nail technician','beauty craft customer'],['Esthetician','beauty care people customer'],['Massage therapist','care physical people customer'],['Spa therapist','care beauty people hospitality'],['Tattoo artist','creative craft beauty customer'],['Piercer','beauty craft safety customer'],['Optician','medicine customer tools'],['Audiologist','care medicine people science'],['Speech therapist','care education people communication'],['Radiographer','medicine technology people safety'],['Medical laboratory scientist','medicine science research tools'],['Medical assistant','medicine people organization safety'],['Clinical researcher','medicine research science degree'],['Epidemiologist','medicine research science public'],['Public health officer','medicine public research government'],['Health inspector','medicine safety tools public'],['Medical records technician','medicine computer organization'],['Medical coder','medicine numbers computer organization'],['Health information manager','medicine technology leadership organization'],['Hospital administrator','medicine leadership organization people'],['Surgeon','medicine tools care degree'],['Anesthesiologist','medicine science safety degree'],['Emergency physician','medicine emergency care safety'],['Pediatrician','medicine care education people'],['Dermatologist','medicine care science people'],['Psychiatrist','medicine care people science'],['Radiologist','medicine technology research'],['Pathologist','medicine research science tools'],['Optical technician','tools technology care customer'],['Phlebotomist','medicine tools people safety'],['Dental hygienist','medicine care people tools'],['Dental technician','medicine craft tools products'],['Dental assistant','medicine people organization safety'],['Chiropractor','care physical people medicine'],['Osteopath','care physical people medicine'],['Acupuncturist','care tools people medicine'],['Veterinary technician','animals medicine people tools'],['Animal trainer','animals education people physical'],['Dog groomer','animals beauty customer physical'],['Dog walker','animals outdoors physical customer'],['Pet sitter','animals care independent'],['Zookeeper','animals care outdoors safety'],['Animal shelter worker','animals care public physical'],['Wildlife biologist','animals science outdoors research'],['Animal control officer','animals public safety outdoors'],['Equine therapist','animals care sport people'],['Horse trainer','animals education sport physical'],['Farrier','animals tools physical craft'],['Rancher','animals agriculture outdoors physical'],['Dairy farmer','animals agriculture physical machinery'],['Crop farmer','agriculture outdoors machinery physical'],['Agronomist','agriculture science research outdoors'],['Agricultural engineer','agriculture machinery technology design'],['Farm equipment mechanic','agriculture tools machinery'],['Forestry technician','agriculture outdoors tools safety'],['Arborist','agriculture outdoors tools safety'],['Tree surgeon','agriculture physical outdoors safety'],['Landscape gardener','agriculture outdoors design physical'],['Groundskeeper','agriculture outdoors tools physical'],['Botanist','science agriculture research outdoors'],['Conservation officer','public outdoors animals safety'],['Marine conservationist','animals science outdoors public'],['Fisheries officer','animals science outdoors government'],['Oceanographer','science outdoors research technology'],['Climate scientist','science research numbers public'],['Sustainability consultant','strategy science research communication'],['Waste manager','logistics public machinery safety'],['Recycling technician','products machinery physical safety'],['Water treatment operator','machinery science safety tools'],['Water engineer','technology science build design'],['Environmental engineer','science technology build safety'],['Geotechnical engineer','science build numbers tools'],['Mining engineer','machinery safety outdoors numbers'],['Miner','physical machinery safety outdoors'],['Driller','tools machinery outdoors safety'],['Oil rig worker','machinery outdoors safety physical'],['Petroleum engineer','science technology machinery numbers'],['Energy trader','money numbers strategy'],['Power plant operator','machinery safety technology'],['Nuclear engineer','science safety technology numbers'],['Power systems engineer','technology numbers safety design'],['Electric power lineworker','tools outdoors safety physical'],['Wind farm technician','machinery outdoors safety tools'],['Solar panel technician','technology tools outdoors build'],['Insulation installer','build physical safety'],['HVAC technician','tools machinery technology travel'],['Refrigeration technician','tools machinery technology safety'],['Elevator mechanic','tools machinery safety technology'],['Industrial engineer','products numbers strategy machinery'],['Manufacturing engineer','products machinery technology design'],['Production planner','organization products numbers strategy'],['Production manager','leadership products organization strategy'],['Factory supervisor','leadership machinery products safety'],['Assembly line worker','products physical machinery'],['Packaging technician','products machinery physical'],['Textile worker','craft products machinery physical'],['Textile designer','design creative products craft'],['Leatherworker','craft products physical'],['Shoemaker','craft products physical'],['Watchmaker','craft numbers tools physical'],['Clock repairer','craft tools machinery customer'],['Instrument maker','craft products tools creative'],['Musical instrument repairer','craft tools performance'],['Cabinetmaker','craft tools build design'],['Furniture maker','craft tools build design'],['Upholsterer','craft tools physical products'],['Blacksmith','craft tools physical safety'],['Metal fabricator','craft tools machinery products'],['Sheet metal worker','tools physical products build'],['Pipefitter','tools build safety physical'],['Steamfitter','tools machinery build safety'],['Boilermaker','tools machinery build safety'],['Mason','build physical craft outdoors'],['Concrete finisher','build physical outdoors craft'],['Drywall installer','build physical craft'],['Floor installer','build physical craft'],['Tile setter','build craft physical design'],['Window installer','build tools physical safety'],['Insulation worker','build physical safety'],['Solar sales consultant','sales technology people communication'],['Home energy adviser','energy property communication science'],['Home stager','property design creative customer'],['Interior decorator','design property creative customer'],['Furniture designer','design products craft computer'],['Industrial designer','design products technology computer'],['Packaging designer','design products creative computer'],['Exhibition designer','design creative public'],['Set designer','design performance creative build'],['Scenic carpenter','build performance craft tools'],['Costume designer','design performance creative craft'],['Costume maker','craft performance products'],['Prop maker','craft performance tools'],['Art director','creative leadership design media'],['Creative director','creative leadership strategy media'],['UX writer','words design computer communication'],['Technical illustrator','design words technology computer'],['Instructional writer','education words design computer'],['Accessibility consultant','technology communication research public'],['Web accessibility tester','technology computer research design'],['Localization tester','language technology computer research'],['Ethical hacker','technology security research computer'],['Penetration tester','technology security research tools'],['Digital forensics analyst','technology law research computer'],['Fraud investigator','money law research security'],['Private investigator','research security travel independent'],['Intelligence analyst','research security government strategy'],['Military intelligence officer','research security government leadership'],['Customs broker','logistics law communication organization'],['Trade compliance specialist','law logistics research organization'],['Immigration lawyer','law people communication degree'],['Patent attorney','law technology words research'],['Corporate lawyer','law money strategy communication'],['Public defender','law social people communication'],['Prosecutor','law public words research'],['Legal secretary','law organization computer words'],['Legal researcher','law research words computer'],['Mediator','communication law people social'],['Arbitrator','law communication strategy'],['Notary public','law public organization'],['Court clerk','law organization public computer'],['Jury consultant','law research people strategy'],['Forensic psychologist','law care research people'],['Crime scene investigator','law science research safety'],['Fingerprint examiner','law science research tools'],['Fire investigator','emergency research safety science'],['Fire inspector','safety public tools property'],['Emergency manager','emergency leadership organization public'],['Disaster response worker','emergency public safety physical'],['Search and rescue worker','emergency outdoors physical safety'],['Mountain rescue worker','emergency outdoors safety physical'],['Coastguard','emergency travel safety outdoors'],['Lifeboat crew','emergency outdoors safety physical'],['Paramedic dispatcher','emergency communication organization medicine'],['911 call taker','emergency communication public'],['Military medic','medicine emergency safety uniform'],['Combat medic','medicine emergency safety physical'],['Army officer','government leadership safety uniform'],['Navy officer','government leadership travel safety'],['Air force officer','government leadership travel safety'],['Military engineer','build technology safety uniform'],['Logistics officer','logistics leadership organization government'],['Veteran services officer','public social communication government'],['Correctional counsellor','social law care communication'],['Prison warden','law leadership safety public'],['Prison guard','law safety public uniform'],['Court bailiff','law safety public uniform'],['Parole officer','law social public communication'],['Customs inspector','government safety travel law'],['Health and safety adviser','safety research communication government'],['Food safety inspector','food safety science public'],['Building code inspector','build law safety property'],['Electrical inspector','tools technology safety law'],['Gas safety engineer','tools technology safety property'],['Fire alarm technician','technology safety tools build'],['Security systems installer','technology security tools build'],['CCTV operator','security technology computer'],['Cyber incident responder','technology security emergency computer'],['Information security consultant','security technology strategy communication'],['Digital privacy consultant','technology law strategy communication'],['Data protection officer','law technology research organization'],['Records manager','organization computer law'],['Knowledge manager','words organization computer strategy'],['Document controller','organization build computer words'],['Project scheduler','organization numbers build computer'],['Construction manager','leadership build organization safety'],['Site engineer','build numbers tools outdoors'],['Site manager','build leadership organization safety'],['Quantity estimator','numbers build computer money'],['Cost engineer','numbers build strategy money'],['Construction estimator','numbers build tools computer'],['Building contractor','build leadership sales tools'],['General contractor','build leadership organization sales'],['Demolition worker','build physical safety machinery'],['Scaffolder','build physical safety outdoors'],['Crane operator trainee','machinery safety physical tools'],['Construction surveyor','build numbers outdoors tools'],['Drilling engineer','machinery outdoors science tools'],['Mining geologist','science outdoors machinery research'],['Quarry worker','physical outdoors machinery safety'],['Heavy equipment operator','machinery physical safety outdoors'],['Excavator operator','machinery outdoors physical tools'],['Road maintenance worker','build public tools outdoors'],['Bridge inspector','build safety research outdoors'],['Tunnel engineer','build numbers safety design'],['Waterproofing specialist','build tools safety physical'],['Paving worker','build physical outdoors machinery'],['Asphalt worker','build physical outdoors machinery'],['Roof inspector','build safety property outdoors'],['Solar project manager','leadership technology organization strategy'],['Energy project developer','energy strategy organization sales'],['Energy consultant','science strategy communication numbers'],['Carbon accountant','numbers science money research'],['Carbon analyst','science numbers research computer'],['ESG analyst','strategy research numbers computer'],['Environmental educator','education science public communication'],['Climate policy adviser','government science strategy words'],['Renewable energy researcher','science technology research numbers'],['Wastewater engineer','science technology build safety'],['Water quality technician','science tools safety research'],['Soil scientist','science agriculture research outdoors'],['Agricultural inspector','agriculture safety government outdoors'],['Crop consultant','agriculture science travel communication'],['Seed analyst','agriculture science research tools'],['Irrigation technician','agriculture tools technology outdoors'],['Greenhouse worker','agriculture physical outdoors'],['Greenhouse manager','agriculture leadership organization'],['Floriculturist','agriculture creative science'],['Vineyard worker','agriculture outdoors physical'],['Winemaker','food science products craft'],['Brewery worker','food machinery products physical'],['Brewer','food science machinery craft'],['Distiller','food science machinery safety'],['Food technologist','food science products technology'],['Food production manager','food leadership products organization'],['Butcher','food tools physical customer'],['Fishmonger','food animals customer physical'],['Deli worker','food customer physical'],['Caterer','food hospitality organization travel'],['Catering manager','food leadership hospitality organization'],['Restaurant manager','food leadership hospitality customer'],['Sommelier','food hospitality customer science'],['Food critic','food words media research'],['Recipe developer','food creative words science'],['Food photographer','food creative media technology'],['Menu designer','food design creative computer'],['Food stylist','food creative design media'],['Food delivery driver','food driving logistics'],['Grocery buyer','food products numbers strategy'],['Grocery cashier','customer money food'],['Grocery manager','food leadership customer products'],['Fish farmer','animals agriculture outdoors machinery'],['Aquaculture technician','animals science outdoors tools'],['Beekeeper','animals agriculture outdoors craft'],['Apiarist','animals science agriculture outdoors'],['Animal nutritionist','animals science care food'],['Pet behaviorist','animals education research communication'],['Veterinary behaviorist','animals medicine research care'],['Wildlife rehabilitator','animals care outdoors physical'],['Wildlife photographer','animals media travel creative'],['Safari guide','animals travel public communication'],['Riding instructor','animals sport education people'],['Stable hand','animals physical outdoors care'],['Jockey','animals sport performance physical'],['Horse veterinarian','animals medicine care outdoors'],['Animal geneticist','animals science research numbers'],['Aquarium curator','animals leadership science public'],['Aquarist','animals care science tools'],['Marine mammal trainer','animals education performance'],['Dolphin trainer','animals education performance'],['Bird trainer','animals education performance'],['Falconer','animals outdoors safety craft'],['Dog trainer','animals education people'],['Pet adoption counsellor','animals social people communication'],['Animal welfare officer','animals public safety communication'],['Animal nutrition technician','animals food science tools'],['Animal research technician','animals science research tools'],['Zoo educator','animals education public communication'],['Wildlife ranger','animals outdoors public safety'],['Game warden','animals outdoors law public'],['Hunting guide','animals outdoors travel safety'],['Fishing guide','animals outdoors travel communication'],['Fisheries scientist','animals science research outdoors'],['Aquaculture farmer','animals agriculture machinery outdoors'],['Marine engineer','machinery travel technology safety'],['Shipwright','build craft tools travel'],['Boat builder','build craft tools design'],['Boat mechanic','tools machinery travel'],['Marine electrician','tools technology travel safety'],['Yacht captain','travel leadership safety outdoors'],['Sailor','travel physical outdoors safety'],['Cruise ship entertainer','performance travel hospitality'],['Cruise director','leadership performance hospitality travel'],['Cruise ship chef','food travel hospitality night'],['Port captain','logistics leadership travel safety'],['Harbour master','travel leadership safety organization'],['Maritime lawyer','law travel communication degree'],['Marine surveyor','travel numbers tools safety'],['Ship broker','travel sales money communication'],['Freight broker','logistics sales organization communication'],['Customs agent','government travel law communication'],['Cargo inspector','logistics safety tools research'],['Shipping clerk','logistics organization computer'],['Warehouse manager','logistics leadership inventory organization'],['Distribution centre supervisor','logistics leadership inventory safety'],['Fulfillment associate','logistics physical inventory'],['Picker packer','logistics physical products'],['Forklift operator','machinery safety logistics physical'],['Inventory analyst','inventory numbers computer research'],['Demand planner','inventory numbers strategy computer'],['Supply planner','logistics numbers organization strategy'],['Procurement analyst','products numbers research computer'],['Purchasing agent','products sales organization money'],['Contract manager','law organization communication strategy'],['Vendor manager','products organization communication strategy'],['Supplier quality engineer','products safety technology research'],['Quality assurance manager','products leadership research safety'],['Quality control inspector','products tools numbers safety'],['Metrology technician','numbers tools science products'],['Calibration technician','tools numbers technology products'],['Test engineer','technology research products numbers'],['Product tester','products physical research independent'],['Reliability engineer','technology research safety numbers'],['Manufacturing technician','products tools machinery safety'],['Production technician','products machinery tools safety'],['Process engineer','products science numbers technology'],['Chemical engineer','science technology products safety'],['Materials scientist','science research products tools'],['Polymer scientist','science research products chemistry'],['Textile engineer','products science machinery design'],['Packaging engineer','products design technology science'],['Industrial designer','products design creative computer'],['Product designer','products design creative computer'],['Furniture upholsterer','craft products tools physical'],['Furniture restorer','craft tools products research'],['Antique restorer','craft research products physical'],['Art conservator','creative research craft science'],['Museum conservator','research craft science public'],['Book conservator','words craft research'],['Paper conservator','craft science research'],['Historic preservationist','property research public architecture'],['Heritage consultant','research property communication public'],['Archaeologist','research outdoors science tools'],['Anthropologist','research people science words'],['Sociologist','research people science words'],['Historian','research words education'],['Art historian','research creative words education'],['Curatorial assistant','organization public research'],['Gallery manager','creative leadership organization public'],['Gallery attendant','public customer creative'],['Auction specialist','sales research art communication'],['Art appraiser','creative numbers research property'],['Gemologist','science craft research products'],['Jewelry designer','craft design creative products'],['Watch repairer','craft tools technology products'],['Instrument technician','tools technology products music'],['Piano tuner','tools music craft independent'],['Musical director','performance leadership creative'],['Composer','creative performance independent'],['Orchestrator','creative performance words'],['Music producer','media creative technology'],['Recording engineer','media technology tools creative'],['Studio musician','performance creative technology'],['Session musician','performance creative independent'],['Music therapist','care performance people'],['Choir director','performance leadership education'],['Band manager','performance leadership organization'],['Concert promoter','performance sales organization'],['Music booking agent','performance sales communication'],['Tour manager','performance travel organization'],['Festival producer','performance organization leadership'],['Venue manager','hospitality leadership performance'],['Box office attendant','customer performance money'],['Ticketing coordinator','organization customer computer'],['Usher','hospitality customer public'],['Stagehand','performance physical tools'],['Rigger','performance tools safety physical'],['Pyrotechnician','performance tools safety science'],['Projectionist','technology media tools'],['Cinema manager','media leadership customer'],['Film critic','media words research'],['Film director','media leadership creative'],['Assistant director','media organization leadership'],['Production assistant','media organization physical'],['Location scout','media travel research'],['Location manager','media organization travel'],['Production designer','media design creative'],['Camera operator','media technology creative tools'],['Cinematographer','media creative technology design'],['Drone operator','technology media outdoors safety'],['Drone photographer','media technology outdoors creative'],['Aerial surveyor','technology outdoors numbers tools'],['Remote sensing analyst','technology research numbers outdoors'],['Satellite technician','technology tools safety'],['Space scientist','science technology research'],['Aerospace engineer','technology design science safety'],['Rocket engineer','technology machinery science safety'],['Astronaut','science travel safety physical'],['Spacecraft operator','technology safety science'],['Satellite engineer','technology machinery design science'],['Aerospace technician','tools technology machinery safety'],['Aircraft inspector','travel safety tools research'],['Aviation mechanic','tools machinery travel safety'],['Avionics technician','technology tools travel safety'],['Airport operations manager','travel leadership organization safety'],['Airline dispatcher','travel logistics organization safety'],['Airline revenue analyst','travel numbers strategy computer'],['Flight attendant trainer','travel education safety hospitality'],['Pilot instructor','travel education safety technology'],['Airfield operations officer','travel safety public organization'],['Airport firefighter','emergency travel safety physical'],['Airport manager','travel leadership organization customer'],['Airline customer care specialist','travel customer communication'],['Airline baggage coordinator','travel logistics organization'],['Aircraft cleaner','travel physical organization'],['Airline catering worker','food travel physical'],['Airline load planner','travel numbers logistics safety'],['Aviation meteorologist','science travel research communication'],['Air traffic safety analyst','travel research safety numbers'],['Airport security manager','security travel leadership safety'],['Aviation lawyer','law travel communication degree'],['Travel blogger','travel words creative media'],['Travel photographer','travel media creative independent'],['Travel writer','travel words creative media'],['Travel journalist','travel words research media'],['Travel consultant','travel customer communication sales'],['Tour operator','travel organization sales leadership'],['Tourism manager','travel leadership strategy public'],['Destination marketer','travel media strategy creative'],['Visitor centre assistant','public travel customer communication'],['Theme park ride operator','safety hospitality technology'],['Theme park performer','performance hospitality public'],['Theme park manager','hospitality leadership safety'],['Cruise planner','travel customer organization'],['Adventure guide','travel outdoors safety people'],['Ski instructor','sport outdoors education safety'],['Surf instructor','sport outdoors education safety'],['Scuba instructor','sport outdoors education safety'],['Outdoor educator','education outdoors safety public'],['Wilderness guide','outdoors safety education travel'],['Camp director','leadership outdoors education organization'],['Camp counsellor','education outdoors people social'],['Recreation coordinator','sport public organization people'],['Parks manager','outdoors leadership public organization'],['Park maintenance worker','outdoors tools physical public'],['Trail builder','build outdoors physical safety'],['Mountain guide','outdoors safety physical travel'],['Rock climbing instructor','sport outdoors education safety'],['Sailing instructor','travel education outdoors safety'],['Kayak guide','travel outdoors safety physical'],['Rafting guide','travel outdoors safety physical'],['Snowboard instructor','sport outdoors education safety'],['Ski patrol','sport emergency outdoors safety'],['Beach lifeguard','safety outdoors sport public'],['Pool attendant','safety sport public customer'],['Aquatic centre manager','sport leadership safety organization'],['Swimming coach','sport education people communication'],['Swim instructor','sport education safety people'],['Diving instructor','sport outdoors education safety'],['Fitness instructor','sport education people physical'],['Yoga teacher','sport education people care'],['Pilates instructor','sport education physical people'],['Dance instructor','performance education sport people'],['Martial arts instructor','sport education safety people'],['Boxing coach','sport education physical leadership'],['Strength coach','sport education numbers physical'],['Sports scientist','sport science research numbers'],['Sports psychologist','sport care research people'],['Sports physiologist','sport science care research'],['Sports nutritionist','sport food science care'],['Sports massage therapist','sport care physical people'],['Sports administrator','sport organization leadership public'],['Athlete agent','sport sales law communication'],['Sports marketer','sport media sales strategy'],['Sports event manager','sport organization leadership hospitality'],['Stadium operations manager','sport leadership safety organization'],['Sports facility manager','sport property leadership safety'],['Grounds manager','sport outdoors leadership agriculture'],['Sports equipment technician','sport tools products machinery'],['Sports photographer','sport media travel creative'],['Sports videographer','sport media technology creative'],['Sports broadcaster','sport media performance communication'],['Sports analyst','sport numbers research media'],['Sports scout','sport research travel communication'],['Talent scout','performance research travel communication'],['Referee','sport safety public'],['Sports official','sport safety public'],['Race car driver','driving sport performance safety'],['Race engineer','sport technology numbers safety'],['Motorsport mechanic','sport tools machinery safety'],['Pit crew member','sport tools physical safety'],['Rally co-driver','driving sport travel communication'],['Cyclist','sport physical performance'],['Professional athlete','sport physical performance'],['Olympic coach','sport education leadership'],['Sports team manager','sport leadership organization'],['Team doctor','sport medicine care safety'],['Team physio','sport care medicine physical'],['Team nutritionist','sport food science care'],['Team psychologist','sport care research people'],['Sports commentator','sport performance communication'],['Sports presenter','sport media performance communication'],['Esports analyst','sport technology research numbers'],['Esports manager','sport technology leadership organization'],['Esports player','sport technology performance'],['Game streamer','technology performance media'],['Game reviewer','technology words research media'],['Game journalist','technology words media research'],['Game localization editor','technology language words computer'],['Game audio designer','technology media creative'],['Game sound engineer','technology media tools creative'],['Game producer','technology leadership organization creative'],['Game community manager','technology communication people organization'],['Game server admin','technology computer security'],['Game animator','technology media creative design'],['Game character artist','technology creative design computer'],['Game environment artist','technology design creative computer'],['Game narrative writer','technology words creative computer'],['Game monetization analyst','technology money numbers strategy'],['Esports tournament organizer','sport technology organization leadership'],['LAN event technician','technology event tools safety'],['Game QA lead','technology leadership research products'],['VR developer','technology computer design creative'],['AR designer','technology computer design creative'],['XR researcher','technology research computer design'],['Virtual production technician','technology media tools safety'],['Motion capture performer','performance technology physical'],['Motion capture technician','technology tools performance'],['3D printing technician','technology tools products design'],['CAD technician','design computer build technology'],['CAD drafter','design computer build words'],['BIM coordinator','build computer organization technology'],['BIM manager','build technology leadership organization'],['Building information modeller','build computer design technology'],['3D modeler','design computer creative technology'],['3D printing engineer','technology design products science'],['Rapid prototyping technician','products tools technology design'],['Prototype engineer','products design technology research'],['Product development engineer','products design science technology'],['Patent examiner','law technology research words'],['Patent agent','law technology communication research'],['Intellectual property lawyer','law creative technology communication'],['Trademark attorney','law products words communication'],['Copyright specialist','law words media research'],['Rights manager','law media organization communication'],['Licensing manager','law products strategy communication'],['Technology transfer officer','technology research organization communication'],['Innovation consultant','strategy technology research communication'],['Startup founder','leadership strategy products sales'],['Entrepreneur','leadership strategy sales creative'],['Business owner','leadership sales organization customer'],['Franchise manager','leadership products organization sales'],['Small business adviser','strategy money people communication'],['Business coach','education strategy people communication'],['Management consultant','strategy research communication travel'],['Strategy consultant','strategy research numbers communication'],['Change manager','leadership communication strategy organization'],['Transformation manager','strategy technology leadership organization'],['Organizational psychologist','research people strategy communication'],['Executive coach','leadership education people communication'],['Leadership trainer','education leadership communication'],['Negotiator','communication strategy law people'],['Mediator','law communication people social'],['Facilitator','communication education organization people'],['Workshop leader','education communication creative people'],['Public speaker','performance communication education'],['Keynote speaker','performance communication strategy'],['Motivational speaker','performance communication social'],['Debate coach','education communication performance'],['Debater','communication research performance'],['Lobbyist','government communication strategy law'],['Political campaign manager','government leadership strategy communication'],['Campaign organizer','government people organization communication'],['Pollster','research numbers government strategy'],['Election officer','government organization public safety'],['Legislative assistant','government words organization research'],['Legislator','government leadership public words'],['Politician','government leadership communication public'],['Mayor','government leadership public strategy'],['Public administrator','government organization leadership public'],['Diplomatic courier','government travel safety logistics'],['Consular officer','government travel communication language'],['Foreign service officer','government language travel communication'],['Humanitarian aid worker','public emergency travel social'],['Disaster relief coordinator','emergency organization public leadership'],['Refugee support worker','social public communication care'],['Resettlement caseworker','social organization communication public'],['Housing officer','property social public communication'],['Homeless outreach worker','social public communication care'],['Domestic violence advocate','social care communication public'],['Victim advocate','social law communication care'],['Substance abuse counsellor','care social communication people'],['Addiction therapist','care social medicine people'],['Grief counsellor','care social people communication'],['Family therapist','care social people communication'],['Marriage counsellor','care social communication people'],['School social worker','social education people public'],['Child protection worker','social care safety public'],['Foster care caseworker','social care organization people'],['Adoption counsellor','social care communication organization'],['Disability support worker','care social people physical'],['Accessibility coordinator','care technology organization communication'],['Sign language interpreter','language communication people'],['Braille transcriber','words care technology independent'],['Caption writer','words media communication computer'],['Captioner','words technology media independent'],['Court interpreter','language law communication people'],['Medical interpreter','language medicine people communication'],['Community interpreter','language public communication people'],['Language access coordinator','language organization public communication'],['Cultural liaison','communication public language people'],['International student adviser','education language communication people'],['Study abroad coordinator','education travel organization language'],['Exchange program manager','education leadership travel organization'],['Study abroad adviser','education travel people communication'],['Student recruiter','education sales travel people'],['College admissions counselor','education communication organization people'],['University registrar','education organization records computer'],['Registrar','organization government records computer'],['Student records officer','education organization computer records'],['Financial aid adviser','education money people communication'],['Scholarship coordinator','education money organization communication'],['Research administrator','research organization computer communication'],['Grant administrator','money research organization words'],['Laboratory manager','science leadership safety organization'],['Lab safety officer','science safety tools government'],['Clinical trial coordinator','medicine research organization communication'],['Research nurse','medicine care research people'],['Clinical data manager','medicine research numbers computer'],['Biostatistician','medicine numbers research science'],['Bioinformatician','science computer numbers research'],['Genetic counsellor','science care people communication'],['Geneticist','science research numbers medicine'],['Genomics analyst','science computer numbers research'],['Biotech engineer','science technology products research'],['Bioprocess technician','science machinery products safety'],['Pharmaceutical scientist','medicine science research products'],['Pharmaceutical sales representative','medicine sales people travel'],['Medical science liaison','medicine research communication travel'],['Clinical pharmacist','medicine care people safety'],['Hospital pharmacist','medicine safety science organization'],['Pharmacy technician','medicine tools people organization'],['Community pharmacist','medicine customer safety people'],['Drug safety specialist','medicine research safety organization'],['Toxicologist','science safety research medicine'],['Toxicology technician','science tools safety research'],['Clinical toxicologist','medicine science safety research'],['Medical physicist','medicine science numbers technology'],['Radiation therapist','medicine care technology people'],['Radiation protection officer','safety science technology government'],['Nuclear medicine technologist','medicine technology safety tools'],['Ultrasound technician','medicine technology people care'],['Sonographer','medicine technology people care'],['MRI technologist','medicine technology tools safety'],['CT technologist','medicine technology people safety'],['Medical imaging assistant','medicine people technology organization'],['Cardiac sonographer','medicine care technology science'],['Cardiovascular technologist','medicine technology tools people'],['Respiratory therapist','medicine care people technology'],['Respiratory technician','medicine tools care technology'],['Sleep technologist','medicine technology research care'],['EEG technician','medicine technology tools research'],['Neurodiagnostic technologist','medicine technology research tools'],['Dialysis technician','medicine technology care safety'],['Dialysis nurse','medicine care people safety'],['Operating room nurse','medicine care tools safety'],['Surgical technologist','medicine tools safety technology'],['Sterile processing technician','medicine safety tools organization'],['Medical equipment technician','medicine tools technology safety'],['Biomedical engineer','medicine technology design science'],['Biomedical equipment technician','medicine tools machinery technology'],['Prosthetist','care tools design medicine'],['Orthotist','care tools design medicine'],['Orthopedic technician','care tools medicine physical'],['Cast technician','care tools physical medicine'],['Medical secretary','medicine organization computer communication'],['Medical receptionist','medicine customer organization communication'],['Patient advocate','medicine social communication people'],['Patient navigator','medicine organization people communication'],['Health coach','care education people communication'],['Wellness coach','care education people communication'],['Health educator','medicine education public communication'],['Community nurse','medicine care public people'],['Public health nurse','medicine care public research'],['School nurse','medicine care education people'],['Occupational health nurse','medicine care safety people'],['Nurse practitioner','medicine care people degree'],['Nurse anesthetist','medicine care safety technology'],['Nurse educator','medicine education people communication'],['Nurse manager','medicine leadership people organization'],['Nurse researcher','medicine research care science'],['Nurse midwife','medicine care people safety'],['Registered nurse','medicine care people safety'],['Licensed practical nurse','medicine care people safety'],['Home health nurse','medicine care travel people'],['Hospice nurse','medicine care people social'],['Palliative care nurse','medicine care people communication'],['Oncology nurse','medicine care science people'],['Cardiac nurse','medicine care science people'],['Pediatric nurse','medicine care education people'],['Geriatric nurse','medicine care people physical'],['Psychiatric nurse','medicine care social people'],['Emergency nurse','medicine emergency care people'],['Flight nurse','medicine travel emergency safety'],['Forensic nurse','medicine law care research'],['Infection control nurse','medicine safety research care'],['Wound care nurse','medicine care tools people'],['Vaccination nurse','medicine care public people'],['Immunization coordinator','medicine organization public communication'],['Blood bank technician','medicine tools safety science'],['Blood donor recruiter','medicine sales communication public'],['Phlebotomy technician','medicine tools safety people'],['Pathology assistant','medicine research tools science'],['Histology technician','medicine science tools research'],['Cytotechnologist','medicine science research tools'],['Medical transcriptionist','medicine words computer independent'],['Medical illustrator','medicine creative design science'],['Medical animator','medicine media creative computer'],['Medical photographer','medicine media tools creative'],['Medical writer','medicine words research computer'],['Medical editor','medicine words computer research'],['Medical communicator','medicine communication words people'],['Health journalist','medicine words media research'],['Health policy analyst','medicine government research strategy'],['Health economist','medicine money numbers research'],['Hospital quality analyst','medicine numbers research safety'],['Clinical quality manager','medicine leadership safety research'],['Patient safety officer','medicine safety research organization'],['Healthcare compliance officer','medicine law organization research'],['Hospital risk manager','medicine strategy safety research'],['Healthcare IT specialist','medicine technology computer communication'],['Electronic health records analyst','medicine computer numbers organization'],['Health data analyst','medicine numbers computer research'],['Medical billing specialist','medicine money computer organization'],['Medical claims processor','medicine money organization computer'],['Medical insurance reviewer','medicine money research law'],['Utilization review nurse','medicine money research care'],['Care coordinator','care organization communication people'],['Case manager','care organization people communication'],['Discharge planner','medicine organization communication care'],['Patient transport aide','medicine physical people safety'],['Hospital porter','medicine physical organization people'],['Hospital cleaner','medicine physical safety'],['Sterile supply aide','medicine tools safety organization'],['Medical supply technician','medicine logistics tools organization'],['Healthcare logistics manager','medicine logistics leadership organization'],['Medical device sales rep','medicine sales technology people'],['Medical device engineer','medicine technology design products'],['Medical device technician','medicine tools technology safety'],['Clinical engineer','medicine technology safety numbers'],['Clinical applications specialist','medicine technology communication travel'],['Surgical device specialist','medicine tools technology travel'],['Orthopedic device technician','medicine tools products craft'],['Hearing aid specialist','care technology customer people'],['Hearing instrument specialist','care technology people customer'],['Audiology assistant','care medicine people organization'],['Speech language pathologist','care education communication people'],['Speech language assistant','care education people communication'],['Language pathologist','care education people communication'],['Dyslexia tutor','education care people communication'],['Learning support assistant','education care people communication'],['Special needs assistant','education care people safety'],['Behaviour analyst','care research people education'],['Autism support worker','care social people communication'],['ABA therapist','care education people communication'],['Play therapist','care education creative people'],['Art therapist','care creative people communication'],['Music therapist','care performance people communication'],['Drama therapist','care performance people creative'],['Equine therapist','care animals sport people'],['Recreational therapist','care sport people education'],['Recreational therapist aide','care sport people physical'],['Therapeutic recreation specialist','care sport public education'],['Child life specialist','care education people creative'],['Bereavement coordinator','care social communication organization'],['Spiritual care provider','care people communication public'],['Chaplain','care public people communication'],['Clergy member','public people communication education'],['Minister','public leadership people communication'],['Pastor','public leadership people care'],['Imam','public leadership people education'],['Rabbi','public leadership education communication'],['Priest','public care communication education'],['Religious educator','education public communication words'],['Faith community organizer','public organization people communication'],['Interfaith coordinator','public communication organization people'],['Community liaison officer','public communication organization people'],['Public information officer','public words media communication'],['Press officer','media words communication strategy'],['Government spokesperson','government communication performance words'],['Emergency public information officer','emergency communication government media'],['Science communicator','science communication media education'],['Museum communicator','public media education words'],['Zoo communicator','animals media education communication'],['Environmental communicator','science public media words'],['Technical communicator','technology words communication computer'],['Corporate communications manager','communication leadership strategy words'],['Internal communications specialist','communication organization words computer'],['Investor relations officer','money communication strategy words'],['Shareholder relations manager','money communication leadership strategy'],['Customer experience manager','customer leadership research strategy'],['User researcher','research design computer people'],['Customer success manager','customer people communication leadership'],['Client relationship manager','customer sales people communication'],['Account executive','sales customer communication strategy'],['Account manager','sales customer organization communication'],['Key account manager','sales customer strategy communication'],['Business development manager','sales strategy people communication'],['Partnership manager','sales organization strategy communication'],['Channel manager','sales products strategy communication'],['Retail manager','customer sales leadership organization'],['Store manager','customer sales leadership organization'],['Assistant store manager','customer sales organization leadership'],['Shop assistant','customer sales products people'],['Cashier','customer money organization'],['Checkout operator','customer money organization'],['Sales associate','sales customer people products'],['Sales clerk','sales customer products organization'],['Department manager','sales leadership products organization'],['Fashion buyer','fashion products sales numbers'],['Fashion merchandiser','fashion products design numbers'],['Fashion retail manager','fashion leadership customer products'],['Luxury sales associate','sales customer products communication'],['Car salesperson','sales customer products travel'],['Car dealer','sales customer products money'],['Automotive sales manager','sales leadership customer products'],['Car rental agent','travel sales customer organization'],['Vehicle inspector','tools safety numbers driving'],['Vehicle valeter','driving physical customer'],['Automotive service adviser','tools customer communication technology'],['Auto parts specialist','products customer tools organization'],['Car parts manager','products inventory leadership customer'],['Fleet sales executive','sales driving products communication'],['Automotive product designer','design products machinery creative'],['Automotive stylist','design products creative'],['Vehicle dynamics engineer','machinery numbers science technology'],['Automotive test driver','driving research products safety'],['Vehicle emissions tester','science tools safety driving'],['Motor vehicle examiner','driving safety tools public'],['Driving examiner','driving safety communication public'],['Driving teacher','driving education people safety'],['Driving test coordinator','driving organization public communication'],['Road safety officer','safety public communication government'],['Traffic engineer','numbers safety technology public'],['Transport engineer','numbers travel technology design'],['Highway planner','strategy build public numbers'],['Rail planner','strategy travel numbers public'],['Public transit planner','public travel strategy numbers'],['Transit operations manager','travel leadership organization public'],['Transit dispatcher','travel organization communication safety'],['Rail signal technician','technology tools safety travel'],['Signalling engineer','technology safety numbers travel'],['Rail maintenance technician','tools machinery safety travel'],['Track worker','travel tools outdoors safety'],['Railway inspector','travel safety tools research'],['Railway manager','travel leadership organization safety'],['Rail station manager','travel leadership customer safety'],['Ticket inspector','travel public safety customer'],['Ticket agent','travel customer money organization'],['Train conductor','travel public safety communication'],['Subway conductor','travel public safety communication'],['Tram operator','driving safety public'],['Tram technician','machinery technology tools safety'],['Cable car operator','driving safety travel technology'],['Ferry captain','travel leadership safety outdoors'],['Ferry worker','travel hospitality safety physical'],['Ferry engineer','machinery travel technology safety'],['Water taxi operator','driving travel customer safety'],['Boat tour guide','travel communication public outdoors'],['Harbour pilot','travel safety technology communication'],['Marine pilot','travel safety communication outdoors'],['Port operations manager','logistics leadership travel organization'],['Terminal manager','logistics leadership organization travel'],['Container planner','logistics numbers organization travel'],['Cargo planner','logistics numbers travel organization'],['Ship scheduler','logistics organization travel numbers'],['Maritime operations analyst','travel numbers research strategy'],['Ocean freight coordinator','logistics travel organization communication'],['Air freight coordinator','logistics travel organization communication'],['Customs clearance clerk','logistics law organization computer'],['Export documentation specialist','logistics words organization computer'],['Import coordinator','logistics organization travel communication'],['Shipping documentation clerk','logistics words computer organization'],['Freight claims adjuster','logistics law research numbers'],['Cargo surveyor','logistics tools numbers research'],['Marine insurance underwriter','money travel research numbers'],['Maritime safety officer','travel safety research government'],['Ship safety inspector','travel safety tools research'],['Ship electrician','tools technology travel safety'],['Marine carpenter','craft travel tools build'],['Ship painter','craft travel physical'],['Ship cleaner','travel physical safety'],['Ship steward','hospitality travel customer'],['Cruise ship receptionist','hospitality travel customer organization'],['Cruise ship nurse','medicine travel care people'],['Cruise ship doctor','medicine travel care science'],['Cruise ship engineer','machinery travel technology safety'],['Cruise ship security officer','security travel safety people'],['Cruise ship photographer','media travel customer creative'],['Cruise ship activity director','performance travel leadership hospitality'],['Cruise ship kids club staff','education travel care people'],['Cruise ship excursion planner','travel organization customer communication'],['Cruise ship entertainer','performance travel creative'],['Cruise ship singer','performance travel creative'],['Cruise ship dancer','performance travel sport'],['Cruise ship comedian','performance travel words creative'],['Cruise ship magician','performance travel creative'],['Cruise ship fitness instructor','sport travel education people'],['Cruise ship yoga instructor','sport travel education care'],['Cruise ship lifeguard','safety travel sport public'],['Cruise ship deckhand','travel physical outdoors safety'],['Cruise ship bosun','travel leadership physical safety'],['Cruise ship captain','travel leadership safety technology'],['Cruise ship first officer','travel safety leadership technology'],['Cruise ship navigation officer','travel technology numbers safety'],['Cruise ship radio officer','travel technology communication safety'],['Cruise ship environmental officer','travel science safety research'],['Cruise ship waste officer','travel logistics safety machinery'],['Cruise ship laundry worker','travel physical organization'],['Cruise ship chef','food travel physical night'],['Cruise ship pastry chef','food creative travel craft'],['Cruise ship waiter','food customer travel hospitality'],['Cruise ship bartender','food customer travel night'],['Cruise ship sommelier','food customer travel science'],['Cruise ship barista','food customer travel hospitality'],['Cruise ship storekeeper','inventory travel organization products'],['Cruise ship purser','money travel organization customer'],['Cruise ship accountant','money travel numbers computer'],['Cruise ship HR manager','people travel leadership organization'],['Cruise ship recruiter','people travel sales communication'],['Cruise ship training officer','education travel leadership communication'],['Cruise ship port agent','travel logistics communication organization'],['Cruise ship excursion guide','travel public communication outdoors'],['Cruise ship tender operator','travel driving safety outdoors'],['Cruise ship diving instructor','sport travel safety education'],['Cruise ship marine biologist','science travel animals research'],['Cruise ship oceanographer','science travel research technology'],['Cruise ship doctor','medicine travel care people']
-  ].map(([name, tags]) => ({ name, tags: new Set(tags.split(' ')) }));
-  const variants = Object.entries(traits).flatMap(([trait, texts]) => texts.map((text, index) => ({ id: `${trait}-${index + 1}`, trait, text: `Is it true that your job ${text}?`, variant: index })));
-  const uniqueJobs = [...new Map(jobs.map(job => [job.name.toLowerCase(), job])).values()];
 
-  const state = { screen:'welcome', answers:[], guesses:[], used:new Set(), current:null, candidates:[], seconds:LIMIT, timerHandle:0, questionEpoch:0, typingHandle:0, locked:true, streak:0, gameId:null, voterId:null, audio:null, audioOn:false, finalJob:'' };
-  const STORAGE_KEY = 'career-ladder-unsent-v1';
-  const visitorKey = 'career-ladder-voter-v1';
-  $('#year').textContent = String(new Date().getFullYear());
-  ui.save.classList.add('offline');
-  ui.save.lastChild.textContent = ' CHECKING DATABASE';
+  const uuid = () => {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+    else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+    return [...bytes].map((b, i) => `${[4, 6, 8, 10].includes(i) ? '-' : ''}${b.toString(16).padStart(2, '0')}`).join('');
+  };
+  const esc = (value) => String(value).replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch]);
+  const clockText = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
-  function speak(text, expression='idle', type=false) {
-    ui.avatar.className = `avatar avatar-${expression}`;
-    ui.speechBox.classList.toggle('is-typing', type);
-    if (!type) { ui.speech.textContent = text; return Promise.resolve(); }
-    ui.speech.textContent = '';
-    return new Promise(resolve => {
-      let i = 0; clearInterval(state.typingHandle);
-      state.typingHandle = setInterval(() => {
-        ui.speech.textContent += text[i++] || '';
-        if (i > text.length) { clearInterval(state.typingHandle); ui.speechBox.classList.remove('is-typing'); resolve(); }
-      }, 22);
-    });
-  }
   function setPhase(label) { ui.phase.textContent = label; }
-  function escapeHtml(value) { return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
-  function renderWelcome() {
-    resetRun();
-    state.screen = 'welcome'; state.locked = true; setPhase('WELCOME'); ui.round.textContent='READY PLAYER?';
-    ui.content.innerHTML = `<div class="welcome-layout"><div class="welcome-copy"><h2>Climb the ladder.<br><span class="title-mark">Keep your job a secret.</span></h2><p>The bot asks smart, shuffled questions and narrows down hundreds of careers. Beat the two-minute clock and keep your title safe.</p></div><button class="primary-btn" id="start-game" type="button">Start the climb <span>→</span></button></div>`;
-    $('#start-game').addEventListener('click', startIntro);
-    updateStats();
+  function setFace(expression = 'neutral') {
+    ui.avatar.className = `avatar avatar-${expression}`;
   }
-  function startIntro() {
-    resetRun(); state.audioOn=true; ui.sound.innerHTML='♫ <span>Sound on</span>'; ui.sound.setAttribute('aria-label','Turn sound off'); startMusic(); ui.round.textContent='CLIMBING IN';
-    state.screen='intro'; setPhase('INTRO');
-    ui.content.innerHTML='<div class="welcome-copy"><h2>Booting up the ladder…</h2><p>Get ready. The host is taking the blocky shortcut.</p></div>';
-    ui.avatar.classList.add('avatar-intro'); ui.avatar.classList.add('avatar-wave');
-    speak('Hope you don’t have to hold your bladder…', 'wave', true);
-    window.setTimeout(() => { ui.avatar.classList.remove('avatar-intro'); ui.avatar.classList.remove('avatar-wave'); ui.avatar.classList.add('avatar-climb'); ui.climb.style.width='55%'; }, 700);
-    window.setTimeout(() => { $('#avatar-rival').classList.add('avatar-climb'); ui.climb.style.width='100%'; }, 1450);
-    window.setTimeout(() => speak('…’cause it’s time for the Career Ladder!', 'happy', true), 1700);
-    window.setTimeout(renderJobGate, 3900);
+  function say(text, expression = 'neutral') {
+    setFace(expression);
+    ui.speech.textContent = text;
+  }
+  function setSaveState(kind, text) {
+    ui.save.classList.toggle('offline', kind === 'offline');
+    ui.save.classList.toggle('error', kind === 'error');
+    ui.save.replaceChildren(document.createElement('i'), document.createTextNode(` ${text}`));
+  }
+
+  function baseCandidates() {
+    return uniqueJobs.filter((job) => !state.eliminatedGuesses.has(job.name.toLowerCase()))
+      .map((job) => ({ job, score: 0, probability: 1 }));
   }
   function resetRun() {
-    stopTimer(); clearInterval(state.typingHandle); state.answers=[]; state.guesses=[]; state.used=new Set(); state.current=null; state.candidates=uniqueJobs.map(job=>({job,score:0,prob:1/uniqueJobs.length}));
-    state.seconds=LIMIT; state.streak=0; state.questionEpoch++; state.locked=true; state.gameId=crypto.randomUUID(); state.finalJob=''; ui.streak.textContent='★ 0'; ui.climb.style.width='0%';
-    ui.avatar.className='avatar avatar-idle'; $('#avatar-rival').className='avatar avatar-rival avatar-idle';
-    ui.timer.textContent='02:00'; ui.timerWrap.classList.remove('active','low'); ui.questions.textContent='0'; ui.possible.textContent=String(uniqueJobs.length); ui.best.textContent='—';
-    document.querySelectorAll('.mission-list li').forEach((item,index)=>item.classList.toggle('mission-active',index===0));
+    stopTimer();
+    state.answers = []; state.guesses = []; state.used = new Set(); state.current = null;
+    state.eliminatedGuesses = new Set(); state.candidates = baseCandidates();
+    state.seconds = LIMIT_SECONDS; state.locked = true; state.streak = 0; state.gameId = uuid();
+    $('#timer').textContent = '02:00'; ui.timerWrap.classList.remove('active', 'low');
+    ui.questions.textContent = '0'; ui.possible.textContent = String(uniqueJobs.length); ui.best.textContent = '—';
+    ui.streak.textContent = '★ 0'; ui.climb.style.width = '0%';
+    setFace('neutral');
+    document.querySelectorAll('.mission-list li').forEach((item, i) => {
+      item.classList.toggle('mission-active', i === 0); item.classList.remove('mission-done');
+    });
     updateStats();
   }
-  function renderJobGate() {
-    state.screen='gate'; setPhase('QUICK CHECK'); ui.round.textContent='LEVEL 01 · JOB CHECK';
-    speak('First checkpoint! Do you have a job?', 'curious', true);
-    ui.content.innerHTML=`<div class="question-wrap"><div class="question-meta"><span class="q-count">CHECKPOINT 01</span><span>·</span><span>ONE QUICK QUESTION</span></div><h2 class="question-title">Do you have a job?</h2><p class="question-sub">Think of any current job or the one you want me to guess.</p><div class="guess-actions"><button class="primary-btn" id="job-yes">Yep, let’s play</button><button class="secondary-btn" id="job-no">No, not yet</button></div></div>`;
-    $('#job-yes').addEventListener('click', beginQuestions);
-    $('#job-no').addEventListener('click', () => { stopTimer(); state.screen='no-job'; setPhase('NEED A JOB'); speak('Ahhh! You need a job for this one.', 'sad'); ui.content.innerHTML=`<div class="result-panel"><h2 class="result-title">Ahhh! You need a job for this one.</h2><p class="result-copy">Come back when you’ve got a job in mind. It can be your real job, dream job, or a job you made up.</p><div class="action-row"><button class="primary-btn" id="try-again">Back to start</button></div></div>`; $('#try-again').addEventListener('click',renderWelcome); });
+
+  function showWelcome() {
+    resetRun(); state.screen = 'welcome'; setPhase('WELCOME'); ui.round.textContent = 'READY PLAYER?';
+    say('Welcome to the Career Ladder. Pick a job and keep it secret.', 'neutral');
+    ui.content.innerHTML = `<div class="welcome-layout"><div class="welcome-copy"><h2>Climb the ladder.<br><span class="title-mark">Keep your job a secret.</span></h2><p>I’ll narrow down ${uniqueJobs.length.toLocaleString()} jobs with fresh questions. You have two minutes to beat the guesser.</p></div><button class="primary-btn" id="start-game" type="button">Start game →</button></div>`;
+    $('#start-game').addEventListener('click', startGame);
   }
+
+  function startGame() {
+    resetRun();
+    state.audioOn = true;
+    setSoundButton(); startMusic();
+    showJobGate();
+  }
+
+  function showJobGate() {
+    state.screen = 'gate'; state.locked = true; setPhase('QUICK CHECK'); ui.round.textContent = 'LEVEL 01 · JOB CHECK';
+    say('Hope you don’t have to hold your bladder, ’cause it’s time for the Career Ladder!', 'happy');
+    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">CHECKPOINT 01</span><span>·</span><span>ONE QUICK QUESTION</span></div><h2 class="question-title">Do you have a job?</h2><p class="question-sub">Think of a current job, a dream job, or any job you know well.</p><div class="guess-actions"><button class="primary-btn" id="job-yes" type="button">Yes — let’s play</button><button class="secondary-btn" id="job-no" type="button">No</button></div></div>`;
+    $('#job-yes').addEventListener('click', beginQuestions);
+    $('#job-no').addEventListener('click', showNoJob);
+  }
+
+  function showNoJob() {
+    stopTimer(); state.screen = 'no-job'; setPhase('NEED A JOB');
+    say('Ahhh! You need a job for this one.', 'sad');
+    ui.content.innerHTML = `<div class="result-panel"><h2 class="result-title">Ahhh! You need a job for this one.</h2><p class="result-copy">Come back when you have a current job, a dream job, or a job you want me to guess.</p><div class="action-row"><button class="primary-btn" id="back-to-welcome" type="button">Back to start</button></div></div>`;
+    $('#back-to-welcome').addEventListener('click', showWelcome);
+  }
+
   function beginQuestions() {
-    state.screen='question'; state.candidates=uniqueJobs.map(job=>({job,score:0,prob:1/uniqueJobs.length}));
-    document.querySelectorAll('.mission-list li').forEach((item,index)=>{item.classList.toggle('mission-active',index===1);item.classList.toggle('mission-done',index===0)});
+    state.screen = 'question'; state.locked = false; state.answers = []; state.guesses = [];
+    state.used.clear(); state.eliminatedGuesses.clear(); state.candidates = baseCandidates();
+    document.querySelectorAll('.mission-list li').forEach((item, i) => {
+      item.classList.toggle('mission-active', i === 1); if (i === 0) item.classList.add('mission-done');
+    });
     askNext();
   }
-  function normalizeCandidates() {
-    const max=Math.max(...state.candidates.map(c=>c.score));
-    const weights=state.candidates.map(c=>Math.exp(Math.max(-22,c.score-max)));
-    const total=weights.reduce((a,b)=>a+b,0)||1;
-    state.candidates.forEach((candidate,index)=>candidate.prob=weights[index]/total);
-    state.candidates.sort((a,b)=>b.prob-a.prob);
-  }
-  function information(question) {
-    let yes=0,no=0;
-    state.candidates.forEach(c => { if(c.job.tags.has(question.trait)) yes+=c.prob; else no+=c.prob; });
-    if (!yes || !no) return 0;
-    const h=p=>p<=0?0:-p*Math.log2(p);
-    return h(yes);
-  }
-  function chooseQuestion() {
-    const available=variants.filter(q=>!state.used.has(q.id));
-    if (!available.length) return null;
-    const recent=new Set(state.answers.slice(-4).map(a=>a.trait));
-    let pool=available.filter(q=>!recent.has(q.trait));
-    if (!pool.length) pool=available;
-    const ranked=pool.map(q=>({q,score:information(q)+Math.random()*.08})).sort((a,b)=>b.score-a.score);
-    if (!ranked.length) return null;
-    // If confidence is diffuse, still rotate through fresh traits before rephrasing any.
-    const freshTraits=ranked.filter(row=>!state.answers.some(a=>a.trait===row.q.trait));
-    return (freshTraits[0]||ranked[0]).q;
-  }
-  function startTimer() {
-    stopTimer(); ui.timerWrap.classList.add('active'); state.timerHandle=window.setInterval(() => {
-      if (state.locked || state.screen!=='question') return;
-      state.seconds=Math.max(0,state.seconds-1); ui.timer.textContent=`${String(Math.floor(state.seconds/60)).padStart(2,'0')}:${String(state.seconds%60).padStart(2,'0')}`;
-      ui.timerWrap.classList.toggle('low',state.seconds<=20);
-      if (state.seconds===0) timeExpired();
-    },1000);
-  }
-  function stopTimer() { clearInterval(state.timerHandle); state.timerHandle=0; }
-  function askNext() {
-    if (state.screen!=='question') return;
-    normalizeCandidates();
-    const guess=state.candidates[0];
-    if(state.answers.length>=6 && guess && guess.prob>=.31 && guess.prob-state.candidates[1]?.prob>=.035) { renderGuess(guess); return; }
-    const question=chooseQuestion();
-    if(!question || state.answers.length>=variants.length) { renderWinPrompt(); return; }
-    state.current=question; state.used.add(question.id); state.locked=true;
-    ui.round.textContent=`LEVEL 02 · QUESTION ${String(state.answers.length+1).padStart(2,'0')}`; setPhase('THINKING');
-    speak('Let me pick the most useful clue…', 'thinking'); ui.content.innerHTML=`<div class="question-wrap"><div class="question-meta"><span class="q-count">QUESTION ${String(state.answers.length+1).padStart(2,'0')}</span><span>·</span><span>FINDING A NEW PATH</span></div><h2 class="question-title">${escapeHtml(question.text.replace(/^Does your job /,'Does your job ').replace(/\?$/,''))}<span class="typing-dots">...</span></h2><p class="question-sub">Checking the job map and sorting the possibilities.</p><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">THINKING</span></div></div>`;
-    $('#go-back').addEventListener('click',goBack);
-    const epoch=++state.questionEpoch;
-    window.setTimeout(async()=>{
-      if(epoch!==state.questionEpoch || state.screen!=='question') return;
-      setPhase('YOUR TURN'); state.locked=false; startTimer(); await speak(question.text,'curious',true);
-      if(epoch!==state.questionEpoch || state.screen!=='question') return;
-      renderQuestion(question);
-    },420);
-    updateStats();
-  }
-  function renderQuestion(question) {
-    ui.content.innerHTML=`<div class="question-wrap"><div class="question-meta"><span class="q-count">QUESTION ${String(state.answers.length+1).padStart(2,'0')}</span><span>·</span><span>${state.candidates.length} JOBS ON THE MAP</span></div><h2 class="question-title">${escapeHtml(question.text)}</h2><p class="question-sub">Pick the closest answer. “Probably” and “I don’t know” still help.</p><div class="answers">${ANSWERS.map((answer,i)=>`<button class="answer-btn" type="button" data-answer="${i}" aria-label="${escapeHtml(answer)}">${escapeHtml(answer)}</button>`).join('')}</div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">${Math.floor(state.seconds/60)}:${String(state.seconds%60).padStart(2,'0')} LEFT</span></div></div>`;
-    ui.content.querySelectorAll('.answer-btn').forEach(button=>button.addEventListener('click',()=>handleAnswer(Number(button.dataset.answer),question)));
-    $('#go-back').addEventListener('click',goBack);
-  }
-  function handleAnswer(index, question) {
-    if(state.locked || state.screen!=='question') return;
-    state.locked=true; stopTimer(); const answer=ANSWERS[index]; const certainty=ANSWER_WEIGHTS[answer];
-    state.answers.push({id:question.id,trait:question.trait,question:question.text,answer,at:new Date().toISOString()});
-    state.candidates.forEach(candidate=>{const actual=candidate.job.tags.has(question.trait); const likelihood=actual?certainty:1-certainty; candidate.score+=Math.log(Math.max(.02,likelihood));});
-    normalizeCandidates(); state.streak++; ui.streak.textContent=`★ ${state.streak}`;
-    ui.content.querySelectorAll('.answer-btn').forEach(button=>button.disabled=true);
-    speak(answer==='Yes'?'Nice, that narrows it down.':answer==='No'?'Got it. I’ll take another route.':'A fuzzy clue still counts!', answer==='No'?'thinking':'happy');
-    ui.climb.style.width=`${Math.min(96,8+state.answers.length*5)}%`;
-    updateStats();
-    window.setTimeout(()=>askNext(),540);
-  }
-  function goBack() {
-    if(state.screen!=='question') return;
-    if(!state.answers.length){stopTimer();state.questionEpoch++;state.used.clear();state.screen='gate';renderJobGate();return;}
-    stopTimer(); state.questionEpoch++; clearInterval(state.typingHandle);
-    if(state.current) state.used.add(state.current.id);
-    const previous=state.answers.pop();
-    const oldQuestion=variants.find(question=>question.id===previous.id);
-    const previousQuestion=oldQuestion||{id:previous.id,trait:previous.trait,text:previous.question};
-    state.used.add(previous.id); state.current=previousQuestion; state.candidates=uniqueJobs.map(job=>({job,score:0,prob:1/uniqueJobs.length}));
-    for(const entry of state.answers){if(!traits[entry.trait])continue;const c=ANSWER_WEIGHTS[entry.answer]; state.candidates.forEach(candidate=>{const actual=candidate.job.tags.has(entry.trait);candidate.score+=Math.log(Math.max(.02,actual?c:1-c));});}
-    normalizeCandidates(); state.streak=Math.max(0,state.streak-1); ui.streak.textContent=`★ ${state.streak}`; state.seconds=Math.min(LIMIT,state.seconds+8); ui.timer.textContent=`${String(Math.floor(state.seconds/60)).padStart(2,'0')}:${String(state.seconds%60).padStart(2,'0')}`;
-    state.locked=false; state.screen='question'; setPhase('YOUR TURN'); ui.round.textContent=`LEVEL 02 · QUESTION ${String(state.answers.length+1).padStart(2,'0')}`; speak('Want to change that answer? Here’s the earlier clue again.','curious',true); renderQuestion(previousQuestion); startTimer(); updateStats();
-  }
-  function renderGuess(candidate) {
-    stopTimer(); state.screen='guess'; state.locked=true; ui.round.textContent='BOSS LEVEL · FINAL GUESS'; setPhase('FINAL GUESS');
-    document.querySelectorAll('.mission-list li').forEach((item,index)=>{item.classList.toggle('mission-active',index===2);item.classList.toggle('mission-done',index<2)});
-    const percent=Math.round(candidate.prob*100); speak(`I’m getting a strong signal. Is your job ${candidate.job.name}?`,'curious',true);
-    ui.content.innerHTML=`<div class="question-wrap"><div class="question-meta"><span class="q-count">FINAL GUESS</span><span>·</span><span>${percent}% CONFIDENCE</span></div><h2 class="question-title guess-title">Is your job <span class="title-mark">${escapeHtml(candidate.job.name)}</span>?</h2><p class="question-sub">One final checkpoint. If I’m wrong, I’ll keep searching.</p><div class="guess-actions"><button class="primary-btn" id="guess-yes">Yep, that’s it</button><button class="secondary-btn" id="guess-no">Nope, keep going</button></div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">${state.answers.length} CLUES COLLECTED</span></div></div>`;
-    $('#guess-yes').addEventListener('click',()=>finishGame('guessed',candidate.job.name));
-    $('#guess-no').addEventListener('click',()=>{state.candidates=state.candidates.filter(item=>item.job.name!==candidate.job.name); normalizeCandidates(); state.guesses.push({id:`guess-${candidate.job.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,trait:'guess',question:`Is your job ${candidate.job.name}?`,answer:'No',at:new Date().toISOString()}); state.screen='question';state.locked=false;speak('No match. Let’s take another route.','thinking');window.setTimeout(askNext,480);});
-    $('#go-back').addEventListener('click',()=>{state.screen='question';state.locked=false;goBack();});
-  }
-  function timeExpired() { stopTimer(); state.screen='expired'; state.locked=true; setPhase('TIME UP'); ui.round.textContent='CLOCK RAN OUT'; speak('Time’s up! You win this round. Tell me your job and name so I can learn it.','sad'); renderWinPrompt(true); }
-  function renderWinPrompt(expired=false) {
-    state.screen='win';state.locked=true;stopTimer();setPhase('YOU WIN');ui.round.textContent='YOU BEAT THE BOT';
-    speak(expired?'Clock ran out — you win! What job did you have in mind?':'Alright, you just win! What job did I miss?','happy',true);
-    ui.content.innerHTML=`<div class="result-panel"><h2 class="result-title">${expired?'Clock ran out — you win!':'Alright, you just win!'}</h2><p class="result-copy">Tell me what your job is and what name to put on the scorecard. Your answers help improve future rounds.</p><form id="win-form"><div class="input-row"><input class="text-input" name="job" id="job-input" maxlength="80" placeholder="What’s your job?" autocomplete="organization-title" required><input class="text-input" name="name" id="name-input" maxlength="50" placeholder="Your name (or nickname)" autocomplete="nickname" required></div><label class="privacy-note"><input type="checkbox" name="save-consent" required> I understand my name, job, and answers will be saved to the game database.</label><div class="action-row"><button class="primary-btn" type="submit">Save my victory</button><span class="save-status">${state.answers.length+state.guesses.length+1} answers will be saved</span></div><div class="mistake" id="form-error" role="alert"></div></form></div>`;
-    $('#win-form').addEventListener('submit',event=>{event.preventDefault(); const job=$('#job-input').value.trim();const name=$('#name-input').value.trim();if(!job||!name)return; finishGame('player_won',job,name);});
-    updateStats();
-  }
-  function finishGame(outcome, job, name='') {
-    stopTimer();state.locked=true;state.screen='finished';state.finalJob=job;
-    const cleanJob=job.trim().slice(0,80);
-    const normalized=cleanJob.toLocaleLowerCase().replace(/\s+/g,' ').trim();
-    const playerName=(name||'Player').replace(/[<>]/g,'').trim().slice(0,50);
-    const completeAnswers=[{id:'job-check',trait:'gate',question:'Do you have a job?',answer:'Yes',at:new Date().toISOString()},...state.answers,...state.guesses];
-    const game={id:state.gameId||crypto.randomUUID(),nickname:playerName,submitted_job:cleanJob,normalized_job:normalized,outcome,question_count:completeAnswers.length,answers:completeAnswers,elapsed_seconds:LIMIT-state.seconds,created_at:new Date().toISOString()};
-    const voterId=getVoterId(); const vote={job_key:normalized,voter_id:voterId};
-    speak(outcome==='guessed'?`Nailed it! ${job} is the job. I’ll remember this run.`:`Victory saved, ${playerName}! The ladder learned a new job.` ,outcome==='guessed'?'happy':'happy');
-    ui.content.innerHTML=`<div class="result-panel"><h2 class="result-title">${outcome==='guessed'?'Nailed it!':'You beat the bot!'}</h2><p class="result-copy">${outcome==='guessed'?`I guessed <strong>${escapeHtml(job)}</strong>. Thanks for playing!`:`Thanks, <strong>${escapeHtml(playerName)}</strong>! The answer was <strong>${escapeHtml(job)}</strong>. It’s on the ladder’s learning list.`}</p><div class="answer-recap">${state.answers.length} answers · ${state.seconds===0?'clock expired':'time remaining '+Math.floor(state.seconds/60)+':'+String(state.seconds%60).padStart(2,'0')} · DATABASE SAVE: <span id="final-save-status">sending…</span></div><div class="action-row"><button class="primary-btn" id="play-again">Play again</button><button class="secondary-btn" id="share-result">Copy result</button></div></div>`;
-    $('#play-again').addEventListener('click',renderWelcome);$('#share-result').addEventListener('click',async()=>{const text=`I ${outcome==='guessed'?'got guessed':'beat the bot'} at Career Ladder! Can you do better?`;try{await navigator.clipboard.writeText(text);$('#share-result').textContent='Copied!';}catch{ $('#share-result').textContent='Copy unavailable'; }});
-    submitGame(game,vote);
-  }
-  function getVoterId() { try {let id=localStorage.getItem(visitorKey);if(!id){id=crypto.randomUUID();localStorage.setItem(visitorKey,id);}return id;}catch{return crypto.randomUUID();} }
 
-  const config=window.CAREER_LADDER_CONFIG||{};
-  const dbReady=Boolean(config.supabaseUrl&&config.supabaseAnonKey);
-  function headers(prefer='') { return {'apikey':config.supabaseAnonKey,'Authorization':`Bearer ${config.supabaseAnonKey}`,'Content-Type':'application/json','Prefer':prefer}; }
-  async function dbRequest(path,{method='GET',body,prefer='',headers:extra={}}={}) {
-    if(!dbReady) throw new Error('Database URL or anon key is missing from config.js');
-    const response=await fetch(`${config.supabaseUrl.replace(/\/$/,'')}/rest/v1/${path}`,{method,headers:{...headers(prefer),...extra},body:body?JSON.stringify(body):undefined,mode:'cors'});
-    const text=await response.text(); let data=null; try{data=text?JSON.parse(text):null;}catch{}
-    if(!response.ok){const err=new Error(data?.message||`Database request failed (${response.status})`);err.status=response.status;err.details=data;throw err;}
-    return {data,response};
+  function normalizeCandidates() {
+    if (!state.candidates.length) return;
+    const max = Math.max(...state.candidates.map((candidate) => candidate.score));
+    const weights = state.candidates.map((candidate) => Math.exp(Math.max(-30, candidate.score - max)));
+    const total = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+    state.candidates.forEach((candidate, i) => { candidate.probability = weights[i] / total; });
+    state.candidates.sort((a, b) => b.probability - a.probability);
   }
-  async function checkDatabase() {
-    if(!dbReady){setSave('offline','DATABASE NOT SET');return;}
-    try { await dbRequest('career_ladder_job_votes?select=id&limit=0'); setSave('','DATABASE CONNECTED'); retryQueue(); }
-    catch(error){console.warn('[Career Ladder] Database connection check:',error.details||error.message);setSave('offline',error.status===404?'RUN DATABASE SETUP':'DATABASE CHECK FAILED');}
+
+  function questionInformation(question) {
+    let yes = 0;
+    for (const candidate of state.candidates) if (candidate.job.tags.has(question.trait)) yes += candidate.probability;
+    if (yes <= 0 || yes >= 1) return 0;
+    return -yes * Math.log2(yes) - (1 - yes) * Math.log2(1 - yes);
   }
-  function setSave(kind,label) {ui.save.classList.toggle('offline',kind==='offline');ui.save.classList.toggle('error',kind==='error');ui.save.innerHTML=`<i></i> ${escapeHtml(label)}`;}
-  async function submitGame(game,vote) {
-    const finalStatus=$('#final-save-status');
+
+  function chooseQuestion() {
+    const available = questionBank.filter((question) => !state.used.has(question.id));
+    if (!available.length) return null;
+    const recentTraits = new Set(state.answers.slice(-3).map((answer) => answer.trait));
+    let pool = available.filter((question) => !recentTraits.has(question.trait));
+    if (!pool.length) pool = available;
+    const fresh = pool.filter((question) => !state.answers.some((answer) => answer.trait === question.trait));
+    if (fresh.length) pool = fresh;
+    const ranked = pool.map((question) => ({ question, score: questionInformation(question) }))
+      .sort((a, b) => b.score - a.score);
+    const bestScore = ranked[0]?.score || 0;
+    const best = ranked.filter((entry) => entry.score >= bestScore - 0.1).slice(0, 8);
+    return best[Math.floor(Math.random() * best.length)]?.question || ranked[0]?.question || null;
+  }
+
+  function askNext() {
+    if (state.screen !== 'question') return;
+    normalizeCandidates();
+    if (!state.candidates.length) { showSavePrompt('player_won', ''); return; }
+    const top = state.candidates[0];
+    const runnerUp = state.candidates[1]?.probability || 0;
+    if (state.answers.length >= 8 && top.probability >= 0.31 && top.probability - runnerUp >= 0.035) {
+      showGuess(top); return;
+    }
+    const question = chooseQuestion();
+    if (!question) { showSavePrompt('player_won', ''); return; }
+    state.current = question; state.used.add(question.id); renderQuestion(question);
+  }
+
+  function renderQuestion(question) {
+    state.screen = 'question'; state.current = question; state.locked = false;
+    setPhase('YOUR TURN'); ui.round.textContent = `LEVEL 02 · QUESTION ${String(state.answers.length + 1).padStart(2, '0')}`;
+    say('Choose the answer that fits best. I’m listening.', 'curious');
+    ui.timer.textContent = clockText(state.seconds); ui.timerWrap.classList.add('active'); startTimer();
+    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">QUESTION ${String(state.answers.length + 1).padStart(2, '0')}</span><span>·</span><span>${state.candidates.length.toLocaleString()} JOBS ON THE MAP</span></div><h2 class="question-title">${esc(question.text)}</h2><p class="question-sub">Pick the closest answer. “Probably” and “I don’t know” still count.</p><div class="answers">${ANSWERS.map((answer, i) => `<button class="answer-btn" type="button" data-answer="${i}">${esc(answer)}</button>`).join('')}</div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">TIMER RUNNING</span></div></div>`;
+    ui.content.querySelectorAll('.answer-btn').forEach((button) => button.addEventListener('click', () => handleAnswer(Number(button.dataset.answer), question)));
+    $('#go-back').addEventListener('click', goBack);
+  }
+
+  function handleAnswer(index, question) {
+    if (state.locked || state.screen !== 'question' || question.id !== state.current?.id) return;
+    const answer = ANSWERS[index];
+    if (!answer) return;
+    state.locked = true; stopTimer();
+    state.answers.push({ id: question.id, trait: question.trait, question: question.text, answer, at: new Date().toISOString() });
+    const certainty = WEIGHT[answer];
+    for (const candidate of state.candidates) {
+      const match = candidate.job.tags.has(question.trait);
+      candidate.score += Math.log(Math.max(.02, match ? certainty : 1 - certainty));
+    }
+    normalizeCandidates(); state.streak++; ui.streak.textContent = `★ ${state.streak}`;
+    ui.climb.style.width = `${Math.min(100, Math.round(state.answers.length / 25 * 100))}%`;
+    say(answer === 'No' ? 'Got it. I’ll take another route.' : 'Nice, that helps narrow it down.', answer === 'No' ? 'thinking' : 'happy');
+    updateStats(); askNext();
+  }
+
+  function rebuildCandidates() {
+    state.candidates = baseCandidates();
+    for (const answer of state.answers) {
+      const certainty = WEIGHT[answer.answer];
+      for (const candidate of state.candidates) {
+        const match = candidate.job.tags.has(answer.trait);
+        candidate.score += Math.log(Math.max(.02, match ? certainty : 1 - certainty));
+      }
+    }
+    normalizeCandidates();
+  }
+
+  function goBack() {
+    if (state.screen !== 'question' || state.locked) return;
+    stopTimer();
+    if (!state.answers.length) { showJobGate(); return; }
+    const previous = state.answers.pop();
+    // Keep its ID marked used: Go Back lets the player change the old answer,
+    // but the selector must not ask that same clue again later in the run.
+    state.current = questionBank.find((question) => question.id === previous.id) || previous;
+    state.used.add(previous.id); rebuildCandidates();
+    state.seconds = Math.min(LIMIT_SECONDS, state.seconds + 8);
+    state.streak = Math.max(0, state.streak - 1); ui.streak.textContent = `★ ${state.streak}`;
+    renderQuestion(state.current); updateStats();
+  }
+
+  function showGuess(candidate) {
+    stopTimer(); state.screen = 'guess'; state.locked = true; setPhase('FINAL GUESS'); ui.round.textContent = 'BOSS LEVEL · FINAL GUESS';
+    document.querySelectorAll('.mission-list li').forEach((item, i) => {
+      item.classList.toggle('mission-active', i === 2); if (i < 2) item.classList.add('mission-done');
+    });
+    say(`I have a strong hunch. Is your job ${candidate.job.name}?`, 'curious');
+    ui.content.innerHTML = `<div class="question-wrap"><div class="question-meta"><span class="q-count">FINAL GUESS</span><span>·</span><span>${Math.round(candidate.probability * 100)}% CONFIDENCE</span></div><h2 class="question-title guess-title">Is your job <span class="title-mark">${esc(candidate.job.name)}</span>?</h2><p class="question-sub">If I’m wrong, I’ll remove it and keep going.</p><div class="guess-actions"><button class="primary-btn" id="guess-yes" type="button">Yes, that’s it</button><button class="secondary-btn" id="guess-no" type="button">No, keep going</button></div><div class="question-actions"><button class="text-button" id="go-back" type="button">← Go back</button><span class="answer-chip">${state.answers.length} CLUES COLLECTED</span></div></div>`;
+    $('#guess-yes').addEventListener('click', () => showSavePrompt('guessed', candidate.job.name));
+    $('#guess-no').addEventListener('click', () => {
+      state.eliminatedGuesses.add(candidate.job.name.toLowerCase());
+      state.guesses.push({ id: `guess-${candidate.job.name.toLowerCase()}`, trait: 'guess', question: `Is your job ${candidate.job.name}?`, answer: 'No', at: new Date().toISOString() });
+      state.candidates = state.candidates.filter((item) => item.job.name !== candidate.job.name);
+      state.screen = 'question'; state.locked = false;
+      updateStats();
+      if (!state.candidates.length) { showSavePrompt('player_won', ''); return; }
+      askNext();
+    });
+    $('#go-back').addEventListener('click', () => {
+      state.screen = 'question'; state.locked = false;
+      if (state.answers.length) goBack(); else showJobGate();
+    });
+  }
+
+  function showSavePrompt(outcome, guessedJob) {
+    stopTimer(); state.screen = 'save'; state.locked = true; setPhase('SAVE YOUR RUN'); ui.round.textContent = outcome === 'guessed' ? 'BOT WINS · SCORECARD' : 'YOU WIN · SCORECARD';
+    const won = outcome === 'player_won';
+    say(won ? 'Alright, you win! What job did I miss, and what name should I put on the scorecard?' : `Nailed it! I guessed ${guessedJob}. What name should I put on the scorecard?`, won ? 'happy' : 'happy');
+    const prompt = won ? `<input class="text-input" name="job" id="job-input" maxlength="80" placeholder="What’s your job?" autocomplete="organization-title" required>` : `<div class="answer-recap">Job guessed: <strong>${esc(guessedJob)}</strong></div>`;
+    ui.content.innerHTML = `<div class="result-panel"><h2 class="result-title">${won ? 'You beat the bot!' : 'I got it!'}</h2><p class="result-copy">${won ? 'Tell me what job I missed and what name to put on the scorecard.' : 'You got guessed. Add a name to save this run and its answers.'}</p><form id="save-form"><div class="input-row">${prompt}<input class="text-input" name="name" id="name-input" maxlength="50" placeholder="Your name or nickname" autocomplete="nickname" required></div><label class="privacy-note"><input type="checkbox" name="save-consent" required> I understand my name, job, and answers will be saved to the game database.</label><div class="action-row"><button class="primary-btn" type="submit">Save scorecard</button><span class="save-status">${state.answers.length + state.guesses.length + 1} answers to save</span></div><div class="mistake" id="form-error" role="alert"></div></form></div>`;
+    $('#save-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const job = won ? $('#job-input').value.trim() : guessedJob;
+      const name = $('#name-input').value.trim();
+      if (!job || !name) {
+        $('#form-error').textContent = !job ? 'Add the job name before saving.' : 'Add a name or nickname before saving.';
+        return;
+      }
+      finishGame(outcome, job, name);
+    });
+    updateStats();
+  }
+
+  function finishGame(outcome, job, name) {
+    stopTimer(); state.screen = 'finished'; state.locked = true;
+    const cleanJob = job.trim().replace(/\s+/g, ' ').slice(0, 80);
+    const playerName = name.replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, 50);
+    const normalizedJob = cleanJob.toLocaleLowerCase();
+    const allAnswers = [
+      { id: 'job-check', trait: 'gate', question: 'Do you have a job?', answer: 'Yes', at: new Date().toISOString() },
+      ...state.answers, ...state.guesses
+    ];
+    const game = {
+      id: state.gameId, nickname: playerName, submitted_job: cleanJob,
+      normalized_job: normalizedJob, outcome, question_count: allAnswers.length,
+      answers: allAnswers, elapsed_seconds: Math.max(0, LIMIT_SECONDS - state.seconds),
+      created_at: new Date().toISOString()
+    };
+    const vote = { job_key: normalizedJob, voter_id: getVoterId() };
+    say(outcome === 'guessed' ? `I guessed ${cleanJob}. Nice round, ${playerName}!` : `Victory, ${playerName}! The ladder learned ${cleanJob}.`, 'happy');
+    ui.content.innerHTML = `<div class="result-panel"><h2 class="result-title">${outcome === 'guessed' ? 'Nailed it!' : 'You beat the bot!'}</h2><p class="result-copy">Thanks, <strong>${esc(playerName)}</strong>. The job was <strong>${esc(cleanJob)}</strong>.</p><div class="answer-recap">${allAnswers.length} answers · DATABASE SAVE: <span id="final-save-status">saving…</span></div><div class="action-row"><button class="primary-btn" id="play-again" type="button">Play again</button><button class="secondary-btn" id="share-result" type="button">Copy result</button></div></div>`;
+    $('#play-again').addEventListener('click', showWelcome);
+    $('#share-result').addEventListener('click', async () => {
+      const text = `I ${outcome === 'guessed' ? 'got guessed' : 'beat the bot'} at Career Ladder! Can you do better?`;
+      try { await navigator.clipboard.writeText(text); $('#share-result').textContent = 'Copied!'; }
+      catch { $('#share-result').textContent = 'Copy unavailable'; }
+    });
+    saveGame(game, vote);
+  }
+
+  function getVoterId() {
     try {
-      await dbRequest('career_ladder_games?on_conflict=id',{method:'POST',body:game,prefer:'resolution=ignore-duplicates,return=minimal'});
-      await dbRequest('career_ladder_job_votes?on_conflict=job_key,voter_id',{method:'POST',body:vote,prefer:'resolution=ignore-duplicates,return=minimal'});
-      const encoded=encodeURIComponent(vote.job_key);
-      const result=await dbRequest(`career_ladder_job_votes?select=voter_id&job_key=eq.${encoded}`,{headers:{'Prefer':'count=exact','Range':'0-0'}});
-      const count=Number(result.response.headers.get('content-range')?.split('/').pop()||0);
-      if(finalStatus) finalStatus.textContent=count>=4?`saved · accepted as a real job (${count} players)`:`saved · ${count}/4 player confirmations`;
-      setSave('',`SAVED · ${count>=4?'JOB VERIFIED':`${count}/4 JOB VOTES`}`);
-      state.finalJob=game.submitted_job;
-    } catch(error) {
-      console.error('[Career Ladder] Could not save run:',error.details||error.message);
-      queueGame(game,vote);
-      if(finalStatus) finalStatus.textContent=describeDatabaseError(error);
-      setSave('error',error.status===401||error.status===403?'CHECK DATABASE ACCESS':'SAVE QUEUED · SETUP NEEDED');
+      let id = localStorage.getItem(VOTER_KEY);
+      if (!id) { id = uuid(); localStorage.setItem(VOTER_KEY, id); }
+      return id;
+    } catch { return uuid(); }
+  }
+
+  const config = window.CAREER_LADDER_CONFIG || {};
+  const hasDatabaseConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey);
+  function authHeaders(prefer = '') {
+    return { apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}`, 'Content-Type': 'application/json', Prefer: prefer };
+  }
+  async function dbRequest(path, options = {}) {
+    if (!hasDatabaseConfig) throw new Error('Supabase URL or anon key is missing from config.js');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
+    try {
+      const response = await fetch(`${config.supabaseUrl.replace(/\/$/, '')}/rest/v1/${path}`, {
+        method: options.method || 'GET', headers: { ...authHeaders(options.prefer || ''), ...(options.headers || {}) },
+        body: options.body ? JSON.stringify(options.body) : undefined, signal: controller.signal
+      });
+      const text = await response.text();
+      let payload = null; try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
+      if (!response.ok) {
+        const error = new Error(payload?.message || `Supabase returned HTTP ${response.status}`);
+        error.status = response.status; error.details = payload; throw error;
+      }
+      return { response, payload };
+    } finally { window.clearTimeout(timeout); }
+  }
+  async function insertOnce(path, row) {
+    try { await dbRequest(path, { method: 'POST', body: row, prefer: 'return=minimal' }); }
+    catch (error) {
+      // A retry can arrive after the server committed but before the browser
+      // received its response. Treat that one unique-key conflict as success.
+      if (error.status === 409 && error.details?.code === '23505') return;
+      throw error;
     }
   }
-  function describeDatabaseError(error) {
-    if(error.status===404||error.status===400) return 'database tables are not ready';
-    if(error.status===401||error.status===403) return 'anon key or insert policy rejected';
-    return 'offline — kept on this device';
-  }
-  function queueGame(game,vote) {
-    try {const items=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');if(!items.some(item=>item.game.id===game.id))items.push({game,vote});localStorage.setItem(STORAGE_KEY,JSON.stringify(items));}catch{}
-  }
-  async function retryQueue() {
+
+  async function checkDatabase() {
+    if (!hasDatabaseConfig) { setSaveState('offline', 'DATABASE NOT CONFIGURED'); return; }
     try {
-      const items=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');if(!items.length)return;
-      for(const item of items){await dbRequest('career_ladder_games?on_conflict=id',{method:'POST',body:item.game,prefer:'resolution=ignore-duplicates,return=minimal'});await dbRequest('career_ladder_job_votes?on_conflict=job_key,voter_id',{method:'POST',body:item.vote,prefer:'resolution=ignore-duplicates,return=minimal'});}
-      localStorage.removeItem(STORAGE_KEY);setSave('','DATABASE CONNECTED · SAVED OFFLINE RUNS');
-    }catch(error){console.warn('[Career Ladder] Offline run sync will retry later:',error.details||error.message);}
-  }
-  function updateStats() {
-    ui.questions.textContent=String(state.answers.length);
-    normalizeCandidates(); const best=state.candidates[0];
-    ui.possible.textContent=state.answers.length?String(state.candidates.filter(c=>c.prob>.002).length):String(uniqueJobs.length);
-    ui.best.textContent=state.answers.length&&best?best.job.name:'—';
-    const confidence=best?best.prob:0; ui.progress.style.width=`${Math.round(confidence*100)}%`;
-    ui.progressText.textContent=state.answers.length?`${Math.round(confidence*100)}% top match confidence`:'Start a new climb';
-    const tips=['Fresh traits first: question topics rotate so the bot does not get stuck in a loop.','Probably is a useful clue; it nudges the match without locking it in.','A “No” on a guess removes it and makes the next clue smarter.','Go Back restores the previous clue and gives the clock a small breather.','The bot picks questions that split the remaining jobs most evenly.'];
-    ui.tip.textContent=tips[state.answers.length%tips.length];
+      await dbRequest('career_ladder_job_votes?select=id&limit=0');
+      setSaveState('', 'DATABASE CONNECTED');
+      await retryOutbox();
+    } catch (error) {
+      console.warn('[Career Ladder] Database check failed:', error.details || error.message);
+      setSaveState('offline', error.status === 404 ? 'RUN DATABASE SETUP' : 'DATABASE UNAVAILABLE');
+    }
   }
 
-  // Small original chiptune loop: starts only after a user gesture, then stays quiet by default.
-  function startMusic() {
-    if(!state.audioOn)return;
-    try {
-      const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;
-      if(!state.audio) state.audio=new AudioContext(); if(state.audio.state==='suspended')state.audio.resume();
-      if(state.musicHandle)return;
-      const melody=[392,494,587,494,440,523,659,587,392,494,587,784,659,587,494,440];let note=0;
-      state.musicHandle=window.setInterval(()=>{if(!state.audio||!state.audioOn)return;const osc=state.audio.createOscillator(),gain=state.audio.createGain();osc.type='square';osc.frequency.value=melody[note++%melody.length];gain.gain.setValueAtTime(.0001,state.audio.currentTime);gain.gain.exponentialRampToValueAtTime(.025,state.audio.currentTime+.01);gain.gain.exponentialRampToValueAtTime(.0001,state.audio.currentTime+.13);osc.connect(gain);gain.connect(state.audio.destination);osc.start();osc.stop(state.audio.currentTime+.14);},170);
-    } catch(error){console.warn('[Career Ladder] Audio is not available:',error.message);}
+  function getOutbox() {
+    try { const parsed = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); return Array.isArray(parsed) ? parsed : []; }
+    catch { return []; }
   }
-  function stopMusic(){if(state.musicHandle){clearInterval(state.musicHandle);state.musicHandle=0;}if(state.audio&&state.audio.state==='running')state.audio.suspend();}
-  ui.sound.addEventListener('click',()=>{state.audioOn=!state.audioOn;if(state.audioOn){ui.sound.innerHTML='♫ <span>Sound on</span>';ui.sound.setAttribute('aria-label','Turn sound off');startMusic();}else{ui.sound.innerHTML='♫ <span>Sound off</span>';ui.sound.setAttribute('aria-label','Turn sound on');stopMusic();}});
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTimer();else if(state.screen==='question'&&!state.locked)startTimer();});
-  window.addEventListener('online',retryQueue);
-  checkDatabase(); renderWelcome();
+  function putOutbox(items) {
+    try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(items)); return true; }
+    catch { return false; }
+  }
+  function queueGame(game, vote) {
+    const items = getOutbox();
+    if (!items.some((item) => item.game?.id === game.id)) items.push({ game, vote });
+    return putOutbox(items);
+  }
+
+  async function saveGame(game, vote) {
+    const status = $('#final-save-status');
+    try {
+      await insertOnce('career_ladder_games', game);
+      await insertOnce('career_ladder_job_votes', vote);
+      let countLabel = 'vote counted';
+      try {
+        const result = await dbRequest(`career_ladder_job_votes?select=voter_id&job_key=eq.${encodeURIComponent(vote.job_key)}`, { headers: { Prefer: 'count=exact', Range: '0-0' } });
+        const count = Number(result.response.headers.get('content-range')?.split('/').pop());
+        if (Number.isFinite(count)) countLabel = count >= 4 ? `job verified by ${count} players` : `${count}/4 confirmations`;
+      } catch { /* The game and answer record are already saved. */ }
+      if (status) status.textContent = `saved · ${countLabel}`;
+      setSaveState('', `SAVED · ${countLabel.toUpperCase()}`);
+    } catch (error) {
+      console.error('[Career Ladder] Could not save the run:', error.details || error.message);
+      const queued = queueGame(game, vote);
+      if (status) status.textContent = queued ? `offline · saved on this device for retry (${saveErrorText(error)})` : `save failed · ${saveErrorText(error)}`;
+      setSaveState('error', queued ? 'OFFLINE SAVE QUEUED' : 'SAVE FAILED');
+    }
+  }
+  function saveErrorText(error) {
+    if (error.status === 404 || error.status === 400) return 'database tables are missing';
+    if (error.status === 401 || error.status === 403) return 'database access policy rejected the save';
+    return 'network unavailable';
+  }
+  async function retryOutbox() {
+    const items = getOutbox();
+    if (!items.length) return;
+    const remaining = [];
+    for (const item of items) {
+      try {
+        await insertOnce('career_ladder_games', item.game);
+        await insertOnce('career_ladder_job_votes', item.vote);
+      } catch (error) { console.warn('[Career Ladder] Saved run will retry later:', error.details || error.message); remaining.push(item); }
+    }
+    putOutbox(remaining);
+    if (items.length && !remaining.length) setSaveState('', 'OFFLINE RUNS SYNCED');
+  }
+
+  function startTimer() {
+    stopTimer(); ui.timerWrap.classList.add('active');
+    state.timerId = window.setInterval(() => {
+      if (state.locked || state.screen !== 'question') return;
+      state.seconds = Math.max(0, state.seconds - 1); ui.timer.textContent = clockText(state.seconds);
+      ui.timerWrap.classList.toggle('low', state.seconds <= 20);
+      if (state.seconds === 0) showSavePrompt('player_won', '');
+    }, 1000);
+  }
+  function stopTimer() { if (state.timerId !== null) window.clearInterval(state.timerId); state.timerId = null; }
+
+  function updateStats() {
+    if (!ui.questions) return;
+    normalizeCandidates();
+    const top = state.candidates[0];
+    ui.questions.textContent = String(state.answers.length);
+    ui.possible.textContent = String(state.candidates.filter((candidate) => candidate.probability > .002).length || 0);
+    ui.best.textContent = top ? top.job.name : '—';
+    const confidence = top?.probability || 0;
+    ui.progress.style.width = `${Math.round(confidence * 100)}%`;
+    ui.progressText.textContent = state.answers.length ? `${Math.round(confidence * 100)}% top match confidence` : 'Start a new climb';
+    const tips = [
+      'Questions change with your answers. No fixed loop.',
+      '“Probably” nudges a match without locking it in.',
+      'A wrong guess is removed from this round.',
+      'Go Back restores the last clue and gives you a little time.',
+      'The next clue is picked to split the remaining jobs.'
+    ];
+    ui.tip.textContent = tips[state.answers.length % tips.length];
+  }
+
+  function setSoundButton() {
+    ui.sound.innerHTML = state.audioOn ? '♫ <span>Sound on</span>' : '♫ <span>Sound off</span>';
+    ui.sound.setAttribute('aria-label', state.audioOn ? 'Turn sound off' : 'Turn sound on');
+  }
+  function startMusic() {
+    if (!state.audioOn || state.musicId !== null) return;
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) { setSoundButton(); return; }
+      if (!state.audio) state.audio = new AudioContext();
+      if (state.audio.state === 'suspended') state.audio.resume();
+      const notes = [392, 494, 587, 494, 440, 523, 659, 587, 392, 494, 587, 784, 659, 587, 494, 440];
+      let index = 0;
+      state.musicId = window.setInterval(() => {
+        if (!state.audio || !state.audioOn || state.audio.state !== 'running') return;
+        const oscillator = state.audio.createOscillator(); const volume = state.audio.createGain();
+        oscillator.type = 'square'; oscillator.frequency.value = notes[index++ % notes.length];
+        volume.gain.setValueAtTime(.0001, state.audio.currentTime);
+        volume.gain.exponentialRampToValueAtTime(.018, state.audio.currentTime + .015);
+        volume.gain.exponentialRampToValueAtTime(.0001, state.audio.currentTime + .16);
+        oscillator.connect(volume); volume.connect(state.audio.destination);
+        oscillator.start(); oscillator.stop(state.audio.currentTime + .17);
+      }, 200);
+    } catch (error) { console.warn('[Career Ladder] Audio is unavailable:', error.message); }
+  }
+  function stopMusic() {
+    if (state.musicId !== null) { window.clearInterval(state.musicId); state.musicId = null; }
+    if (state.audio && state.audio.state === 'running') state.audio.suspend();
+  }
+  ui.sound.addEventListener('click', () => {
+    state.audioOn = !state.audioOn; setSoundButton();
+    if (state.audioOn) startMusic(); else stopMusic();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopTimer();
+    else if (state.screen === 'question' && !state.locked) startTimer();
+  });
+  window.addEventListener('online', retryOutbox);
+  $('#year').textContent = String(new Date().getFullYear());
+  setSaveState('offline', 'CHECKING DATABASE');
+  showWelcome();
+  checkDatabase();
 })();

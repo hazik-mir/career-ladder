@@ -14,6 +14,7 @@
   <title>Hope You Don’t Have to Hold Your Bladder — Career Ladder</title>
   <link rel="stylesheet" href="style.css">
   <script defer src="config.js"></script>
+  <script defer src="data.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -33,20 +34,13 @@
         <div class="ladder" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="platform platform-left" aria-hidden="true"></div><div class="platform platform-right" aria-hidden="true"></div>
         <div id="avatar" class="avatar avatar-idle" aria-label="Pixel game host">
-          <div class="char-shadow"></div><div class="char-head"><div class="hair"></div><div class="eyes"><b></b><b></b></div><div class="mouth"></div></div>
+          <div class="char-shadow"></div><div class="char-head"><div class="hair"></div><div class="brows"><b></b><b></b></div><div class="eyes"><b></b><b></b></div><div class="mouth"></div></div>
           <div class="char-neck"></div><div class="char-body"><div class="shirt-badge">★</div></div>
           <div class="char-arm arm-left"></div><div class="char-arm arm-right"></div>
           <div class="char-leg leg-left"></div><div class="char-leg leg-right"></div>
           <div class="avatar-name">LADDER BOT</div>
         </div>
-        <div id="avatar-rival" class="avatar avatar-rival avatar-idle" aria-hidden="true">
-          <div class="char-shadow"></div><div class="char-head"><div class="hair"></div><div class="eyes"><b></b><b></b></div><div class="mouth"></div></div>
-          <div class="char-neck"></div><div class="char-body"><div class="shirt-badge">✦</div></div>
-          <div class="char-arm arm-left"></div><div class="char-arm arm-right"></div>
-          <div class="char-leg leg-left"></div><div class="char-leg leg-right"></div>
-          <div class="avatar-name">YOU</div>
-        </div>
-        <div class="pixel-speech" id="speech" aria-live="polite"><span class="speech-label">LADDER BOT SAYS</span><span id="speech-text">Ready to climb?</span><span class="speech-caret"></span></div>
+        <div class="pixel-speech" id="speech" aria-live="polite"><span class="speech-label">LADDER BOT SAYS</span><span id="speech-text">Ready to climb?</span></div>
         <div class="scene-hud"><span>WORLD 01</span><span id="timer-wrap" class="timer-wrap"><span class="timer-icon">◷</span><span id="timer">02:00</span></span><span id="streak">★ 0</span></div>
         <div class="climb-meter"><span id="climb-fill"></span></div>
       </div>

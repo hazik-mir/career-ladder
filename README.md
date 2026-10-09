@@ -1,24 +1,20 @@
 # Career Ladder Game
 
-A small static arcade game. It has a block-built host, a shuffled adaptive question pool, the five Akinator-style answers, a two-minute timer, Go Back, local offline-save queue, SEO metadata, sitemap, robots file, and 404 page.
+A static career guessing arcade with a still, expressive voxel host, a shuffled adaptive bank of 162 question phrasings, five answer choices, a two-minute clock, Go Back, local retry for offline saves, SEO metadata, sitemap, robots file, and a custom 404 page. The interface has no intro or motion animations. Its original chiptune is synthesized locally after the player clicks Start.
 
 ## Supabase setup
 
-The browser key in `config.js` is the public anon key and is safe to ship in a browser when Row Level Security is enabled. Never replace it with a `service_role` or secret key.
+`config.js` contains the public anon key, which is intended for browser use. Never put a `service_role` or secret key in the site. Row Level Security is enabled in the provided SQL.
 
-1. Open the Supabase project matching the URL in `config.js`.
+1. Open the Supabase project that matches the URL in `config.js`.
 2. In **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql).
-3. In **Project Settings → Data API**, make sure the `public` schema is exposed. The SQL grants the required table permissions and enables RLS.
-4. Refresh the site. The status should change from setup-needed to database-connected.
+3. In **Project Settings → Data API**, make sure the `public` schema is exposed.
+4. Refresh the site. The top status should say **DATABASE CONNECTED**.
 
-Completed game runs are inserted into `career_ladder_games`. Names and full answers are insert-only and cannot be read from the public site. The separate `career_ladder_job_votes` table contains only a normalized job title and a random browser voter ID. A job reaches the game’s accepted threshold after four distinct browser IDs vote for it. These votes are a casual popularity signal, not verified unique people; a visitor can reset browser storage.
+The game saves the name, job, and full answer list to `career_ladder_games` after the scorecard is submitted. Those records are insert-only from the public site. The separate `career_ladder_job_votes` table stores only normalized job titles and random browser voter IDs. A job is treated as established after four distinct browser IDs vote for it. This is a casual signal; clearing browser storage can create a new ID.
 
-If the game shows **RUN DATABASE SETUP**, the tables are missing or not exposed. **CHECK DATABASE ACCESS** means Supabase rejected the anon role or the RLS policy. The game still runs and queues a completed run in local storage when the database is offline. Exact network errors are written to the browser developer console.
+If the site says **RUN DATABASE SETUP**, the tables are missing or the schema is not exposed. **DATABASE UNAVAILABLE** means the connection or key was rejected. **OFFLINE SAVE QUEUED** means the run is stored in browser storage and will retry when the database is reachable. The game still works if Supabase is unavailable.
 
-## Local preview
+## Preview and deploy
 
-Serve this folder over HTTP (for example, with a local static file server) and open it in a browser. Audio begins after the Start button because browsers block unsolicited autoplay. The chiptune is synthesized locally, so no MP3 files or external audio service are required.
-
-## Deploy
-
-Upload the folder contents to the repository configured for GitHub Pages. Keep the domain’s `CNAME` file if the repository already has one. `careerladder.hazik.in` is already the canonical URL used by the metadata and sitemap.
+Serve this folder with any static web server and open it over HTTP or HTTPS. Upload the folder contents to the repository configured for GitHub Pages, keeping `CNAME`. The canonical domain in metadata and the sitemap is `careerladder.hazik.in`.
