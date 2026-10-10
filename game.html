@@ -212,11 +212,11 @@
   <!-- ===== Cookie banner ===== -->
   <div class="cc-banner" id="cc-banner" role="dialog" aria-modal="false" aria-labelledby="cc-title" hidden>
     <h2 id="cc-title">🍪 Cookies &amp; ads</h2>
-    <p>We use essential storage to run the game, and optional cookies to remember your settings and show ads that keep this game free. You choose. Ads never cover the game.
+    <p>This game is free and supported by ads. Ads are always on and may use cookies from our ad partners. You only choose whether we remember your settings (like music). Ads never cover the game.
       <a href="https://hazik-mir.github.io/license" target="_blank" rel="noopener noreferrer">License</a></p>
     <div class="cc-actions">
-      <button type="button" class="cc-btn primary" id="cc-accept">Accept all</button>
-      <button type="button" class="cc-btn" id="cc-reject">Reject optional</button>
+      <button type="button" class="cc-btn primary" id="cc-accept">Got it</button>
+      <button type="button" class="cc-btn" id="cc-reject">Essential only</button>
       <button type="button" class="cc-btn" id="cc-settings">Settings</button>
     </div>
   </div>
@@ -236,8 +236,7 @@
         <label class="cc-switch"><input type="checkbox" id="cc-pref" aria-label="Preference cookies"><span class="cc-track"></span></label>
       </div>
       <div class="cc-row">
-        <div><b>Advertising</b><span class="d">Lets our ad partner show ads in the side/bottom slots. Off = no ads and no ad scripts load.</span></div>
-        <label class="cc-switch"><input type="checkbox" id="cc-ads" aria-label="Advertising cookies"><span class="cc-track"></span></label>
+        <div><b>Advertising</b><span class="d">Always on. Ads keep this game free and may use cookies from our ad partners. They never cover the game.</span></div>
       </div>
 
       <div class="cc-actions">
@@ -254,7 +253,6 @@
     var banner = document.getElementById('cc-banner');
     var modal = document.getElementById('cc-modal');
     var prefBox = document.getElementById('cc-pref');
-    var adsBox = document.getElementById('cc-ads');
     var lastFocus = null;
 
     function read() {
@@ -340,13 +338,13 @@
     }
 
     function apply(c) {
-      if (c && c.advertising) loadAds(); else hideAds();
-      window.CLConsent = c || { necessary: true, preferences: false, advertising: false };
+      loadAds();
+      window.CLConsent = c || { necessary: true, preferences: false, advertising: true };
       try { document.dispatchEvent(new CustomEvent('cl:consent', { detail: window.CLConsent })); } catch (e) {}
     }
 
     function save(prefs, ads) {
-      var c = { necessary: true, preferences: !!prefs, advertising: !!ads, ts: Date.now() };
+      var c = { necessary: true, preferences: !!prefs, advertising: true, ts: Date.now() };
       write(c);
       if (!prefs) { try { localStorage.removeItem('cl_music'); } catch (e) {} }
       banner.hidden = true;
@@ -358,7 +356,6 @@
     function openModal() {
       var c = read() || {};
       prefBox.checked = !!c.preferences;
-      adsBox.checked = !!c.advertising;
       lastFocus = document.activeElement;
       modal.hidden = false;
       prefBox.focus();
@@ -372,7 +369,7 @@
     document.getElementById('cc-accept').addEventListener('click', function () { save(true, true); });
     document.getElementById('cc-reject').addEventListener('click', function () { save(false, false); });
     document.getElementById('cc-settings').addEventListener('click', openModal);
-    document.getElementById('cc-save').addEventListener('click', function () { save(prefBox.checked, adsBox.checked); });
+    document.getElementById('cc-save').addEventListener('click', function () { save(prefBox.checked, true); });
     document.getElementById('cc-accept-all-modal').addEventListener('click', function () { save(true, true); });
     document.getElementById('cc-close').addEventListener('click', closeModal);
     modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
