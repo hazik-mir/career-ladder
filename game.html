@@ -12,10 +12,96 @@
   <meta name="twitter:title" content="Play Career Ladder — Job Guessing Game">
   <meta name="twitter:description" content="Think of a job. Answer adaptive questions. See if the Career Ladder can guess it.">
   <link rel="canonical" href="https://careerladder.hazik.in/game.html">
+  <link rel="license" href="https://hazik-mir.github.io/license">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preload" href="./style.css?v=20261009-music-ads-4" as="style">
   <link rel="stylesheet" href="./style.css?v=20261009-music-ads-4" media="all">
   <title>Play Career Ladder — Job Guessing Game</title>
+
+  <style>
+    /* ===== Ads: simple, labelled, never over the game ===== */
+    .ad-slot { position: relative; }
+    .ad-slot .ad-card { min-height: 60px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .ad-slot .ad-off { margin: 0; padding: 12px; text-align: center; font-size: 12px; line-height: 1.5; opacity: .7; }
+    .ad-slot .ad-off button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+    .ad-slot.is-hidden { display: none; }
+    .ad-slot .ad-label { margin: 0 0 6px; font-size: 10px; letter-spacing: .14em; opacity: .55; text-align: center; }
+
+    .ad-native-home { max-width: 760px; margin: 18px auto 6px; padding: 0 16px; }
+    .ad-native-home:empty { display: none; }
+    .ad-banner468 { max-width: 468px; margin: 14px auto 6px; padding: 0 16px; }
+    @media (max-width: 519px) { .ad-banner468 { display: none; } }   /* 468px wide won't fit phones */
+    @media (max-width: 1099px) { .ad-rail { display: none; } }
+
+    /* ===== Cookie banner (small card, never a full-screen wall) ===== */
+    .cc-banner {
+      position: fixed; left: 16px; bottom: 16px; z-index: 9990; width: min(392px, calc(100vw - 32px));
+      background: #1b1d44; color: #f4f6ff; border: 1px solid rgba(255,255,255,.14);
+      border-radius: 16px; padding: 16px 16px 14px; box-shadow: 0 18px 50px rgba(8,10,40,.5);
+      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      animation: cc-in .28s ease-out;
+    }
+    .cc-banner[hidden], .cc-modal[hidden] { display: none; }
+    @keyframes cc-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    .cc-banner h2 { margin: 0 0 6px; font-size: 15px; letter-spacing: .01em; }
+    .cc-banner p { margin: 0 0 12px; opacity: .85; font-size: 13px; }
+    .cc-banner a, .cc-modal a { color: #f4a64d; }
+    .cc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cc-btn {
+      flex: 1 1 auto; border-radius: 10px; padding: 9px 12px; font: 600 13px/1 system-ui, sans-serif;
+      cursor: pointer; border: 1px solid rgba(255,255,255,.22); background: transparent; color: #fff;
+    }
+    .cc-btn:hover { background: rgba(255,255,255,.08); }
+    .cc-btn.primary { background: #f4a64d; border-color: #f4a64d; color: #1b1d44; }
+    .cc-btn.primary:hover { background: #ffb967; }
+    .cc-btn:focus-visible, .cc-switch input:focus-visible + .cc-track { outline: 2px solid #fff; outline-offset: 2px; }
+
+    /* ===== Cookie settings modal ===== */
+    .cc-modal {
+      position: fixed; inset: 0; z-index: 9995; display: flex; align-items: center; justify-content: center;
+      background: rgba(8,10,40,.62); padding: 16px;
+    }
+    .cc-dialog {
+      width: min(520px, 100%); max-height: 88vh; overflow: auto; background: #1b1d44; color: #f4f6ff;
+      border: 1px solid rgba(255,255,255,.14); border-radius: 18px; padding: 20px;
+      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .cc-dialog h2 { margin: 0 0 4px; font-size: 18px; }
+    .cc-dialog > p { margin: 0 0 14px; opacity: .8; font-size: 13px; }
+    .cc-row {
+      display: flex; gap: 14px; align-items: flex-start; justify-content: space-between;
+      padding: 12px 0; border-top: 1px solid rgba(255,255,255,.1);
+    }
+    .cc-row b { display: block; font-size: 14px; margin-bottom: 2px; }
+    .cc-row span.d { font-size: 12.5px; opacity: .75; }
+    .cc-switch { position: relative; flex: none; width: 46px; height: 26px; }
+    .cc-switch input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; width: 100%; height: 100%; }
+    .cc-track { position: absolute; inset: 0; border-radius: 99px; background: rgba(255,255,255,.22); transition: background .15s; pointer-events: none; }
+    .cc-track::after {
+      content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; transition: transform .15s;
+    }
+    .cc-switch input:checked + .cc-track { background: #f4a64d; }
+    .cc-switch input:checked + .cc-track::after { transform: translateX(20px); }
+    .cc-switch input:disabled { cursor: not-allowed; }
+    .cc-switch input:disabled + .cc-track { opacity: .55; }
+    .cc-dialog .cc-actions { margin-top: 14px; }
+
+    /* ===== Footer license line ===== */
+    .legal-line {
+      display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; align-items: center;
+      padding: 10px 16px 22px; font-size: 12px; opacity: .8; text-align: center;
+    }
+    .legal-line a, .legal-line button {
+      color: inherit; background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer;
+    }
+
+    @media (max-width: 520px) {
+      .cc-banner { left: 8px; right: 8px; bottom: 8px; width: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) { .cc-banner { animation: none; } }
+  </style>
+
   <script defer src="./config.js"></script>
   <script defer src="./data.js"></script>
   <script defer src="./app.js?v=20261009-music-ads-4"></script>
@@ -27,12 +113,14 @@
   </header>
 
   <main class="game-layout">
+    <!-- Native banner: side rail on wide screens, moves under the game on narrow ones. -->
     <aside class="ad-rail" aria-label="Advertisement">
-      <p class="ad-label">SPONSORED</p>
-      <div class="ad-card">
-        <script data-cfasync="false" src="https://bauval.org/14/bf32b0005cebbf9f88b4757ab42ff0a3"></script>
+      <div class="ad-slot" id="ad-native">
+        <p class="ad-label">SPONSORED</p>
+        <div class="ad-card"><p class="ad-off">Ads are off. <button type="button" data-cc-open>Cookie settings</button></p></div>
       </div>
     </aside>
+
     <section class="game-shell" aria-label="Career Ladder game">
       <div class="game-heading">
         <div><p class="kicker">KEEP A JOB IN MIND</p><h1>Can I guess <span>your job?</span></h1></div>
@@ -88,6 +176,14 @@
     </section>
   </main>
 
+  <div class="ad-native-home" id="ad-native-home"></div>
+
+  <!-- Banner 468x60: below the game, hidden on phones. -->
+  <aside class="ad-banner468 ad-slot" id="ad-banner" aria-label="Advertisement">
+    <p class="ad-label">SPONSORED</p>
+    <div class="ad-card"><p class="ad-off">Ads are off. <button type="button" data-cc-open>Cookie settings</button></p></div>
+  </aside>
+
   <section class="more-games" aria-labelledby="more-games-title">
     <div><p class="kicker">ONE MORE ROUND?</p><h2 id="more-games-title">Check out more games</h2></div>
     <nav class="more-games-links" aria-label="More games and sites">
@@ -102,8 +198,194 @@
     <span id="progress-caption"></span><span id="streak"></span><span id="tip-text"></span><span id="year"></span>
     <span id="timer-wrap-dummy"></span><span id="climb-fill"></span><span id="progress-bar"></span>
   </section>
+
   <footer class="site-footer game-footer" id="credits"><span>Independent project · No affiliation · Original game and artwork</span><a href="https://github.com/hazik-mir" rel="me">Credits · hazik-mir</a></footer>
+
+  <div class="legal-line">
+    <span>© Hazik · Licensed under the <a href="https://hazik-mir.github.io/license" target="_blank" rel="license noopener noreferrer">HDPL License (Hazik Development Projects License)</a></span>
+    <a href="https://hazik-mir.github.io/license" target="_blank" rel="license noopener noreferrer">License</a>
+    <button type="button" data-cc-open>Cookie settings</button>
+  </div>
+
   <audio id="theme-audio" src="./audio/themesong.mp3" loop preload="none" aria-hidden="true"></audio>
+
+  <!-- ===== Cookie banner ===== -->
+  <div class="cc-banner" id="cc-banner" role="dialog" aria-modal="false" aria-labelledby="cc-title" hidden>
+    <h2 id="cc-title">🍪 Cookies &amp; ads</h2>
+    <p>We use essential storage to run the game, and optional cookies to remember your settings and show ads that keep this game free. You choose. Ads never cover the game.
+      <a href="https://hazik-mir.github.io/license" target="_blank" rel="noopener noreferrer">License</a></p>
+    <div class="cc-actions">
+      <button type="button" class="cc-btn primary" id="cc-accept">Accept all</button>
+      <button type="button" class="cc-btn" id="cc-reject">Reject optional</button>
+      <button type="button" class="cc-btn" id="cc-settings">Settings</button>
+    </div>
+  </div>
+
+  <!-- ===== Cookie settings modal ===== -->
+  <div class="cc-modal" id="cc-modal" hidden>
+    <div class="cc-dialog" role="dialog" aria-modal="true" aria-labelledby="cc-modal-title">
+      <h2 id="cc-modal-title">Cookie settings</h2>
+      <p>Pick what you're happy with. You can change this any time from “Cookie settings” at the bottom of the page.</p>
+
+      <div class="cc-row">
+        <div><b>Essential</b><span class="d">Needed for the game to work (your answers, timer, this choice). Always on.</span></div>
+        <label class="cc-switch"><input type="checkbox" checked disabled aria-label="Essential cookies, always on"><span class="cc-track"></span></label>
+      </div>
+      <div class="cc-row">
+        <div><b>Preferences</b><span class="d">Remembers things like your music on/off choice.</span></div>
+        <label class="cc-switch"><input type="checkbox" id="cc-pref" aria-label="Preference cookies"><span class="cc-track"></span></label>
+      </div>
+      <div class="cc-row">
+        <div><b>Advertising</b><span class="d">Lets our ad partner show ads in the side/bottom slots. Off = no ads and no ad scripts load.</span></div>
+        <label class="cc-switch"><input type="checkbox" id="cc-ads" aria-label="Advertising cookies"><span class="cc-track"></span></label>
+      </div>
+
+      <div class="cc-actions">
+        <button type="button" class="cc-btn primary" id="cc-save">Save choices</button>
+        <button type="button" class="cc-btn" id="cc-accept-all-modal">Accept all</button>
+        <button type="button" class="cc-btn" id="cc-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var KEY = 'cl_consent_v1';
+    var banner = document.getElementById('cc-banner');
+    var modal = document.getElementById('cc-modal');
+    var prefBox = document.getElementById('cc-pref');
+    var adsBox = document.getElementById('cc-ads');
+    var lastFocus = null;
+
+    function read() {
+      try { var v = JSON.parse(localStorage.getItem(KEY)); return v && typeof v === 'object' ? v : null; }
+      catch (e) { return null; }
+    }
+    function write(c) {
+      try { localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {}
+    }
+
+    /* ---- ads: ONLY injected after advertising consent ---- */
+    var ADS = {
+      popunder: 'https://abscloud.org/1/a9f7a1368a0d9663617853863e348821',
+      social:   'https://bauval.org/14/bf32b0005cebbf9f88b4757ab42ff0a3',
+      native:   { src: 'https://bauval.org/21/9457bc0a1519bb2b1964e7371e2b058c', id: 'container-9457bc0a1519bb2b1964e7371e2b058c' },
+      banner:   { key: 'f2633d35381d1981e71b5b45620fb709', src: 'https://bauval.org/22/f2633d35381d1981e71b5b45620fb709' }
+    };
+    var adsLoaded = false, popWatcher = null;
+
+    function addScript(src, parent, isAsync) {
+      var s = document.createElement('script');
+      s.async = !!isAsync; s.src = src;
+      s.setAttribute('data-cfasync', 'false');
+      (parent || document.body).appendChild(s);
+      return s;
+    }
+    function clearOff(slot) { var o = slot.querySelector('.ad-off'); if (o) o.remove(); }
+
+    /* Popunder: once per session, and only after the visitor has scrolled below the game,
+       so it never fires while they are answering questions. */
+    function startPopunder() {
+      try { if (sessionStorage.getItem('cl_pop')) return; sessionStorage.setItem('cl_pop', '1'); } catch (e) {}
+      addScript(ADS.popunder, document.head);
+    }
+    window.CLAds = { popunder: function () { var c = window.CLConsent; if (c && c.advertising) startPopunder(); } };
+
+    function watchForPopunder() {
+      var target = document.querySelector('.more-games');
+      if (!target || popWatcher) return;
+      if (!('IntersectionObserver' in window)) return;
+      popWatcher = new IntersectionObserver(function (en) {
+        if (en[0].isIntersecting) { popWatcher.disconnect(); startPopunder(); }
+      }, { threshold: 0.4 });
+      popWatcher.observe(target);
+    }
+
+    function placeNative() {
+      var slot = document.getElementById('ad-native');
+      var rail = document.querySelector('.ad-rail');
+      var home = document.getElementById('ad-native-home');
+      if (!slot || !rail || !home) return;
+      var wide = window.matchMedia('(min-width: 1100px)').matches;
+      var want = wide ? rail : home;
+      if (slot.parentNode !== want) want.appendChild(slot);
+    }
+    placeNative();
+    window.matchMedia('(min-width: 1100px)').addEventListener('change', placeNative);
+
+    function loadAds() {
+      document.querySelectorAll('.ad-slot').forEach(function (s) { s.classList.remove('is-hidden'); });
+      if (adsLoaded) return;
+      adsLoaded = true;
+
+      var nat = document.getElementById('ad-native');
+      if (nat) {
+        var card = nat.querySelector('.ad-card'); clearOff(nat);
+        var box = document.createElement('div'); box.id = ADS.native.id; card.appendChild(box);
+        addScript(ADS.native.src, card, true);
+      }
+      var ban = document.getElementById('ad-banner');
+      if (ban && window.matchMedia('(min-width: 520px)').matches) {
+        clearOff(ban);
+        window.atOptions = { key: ADS.banner.key, format: 'iframe', height: 60, width: 468, params: {} };
+        addScript(ADS.banner.src, ban.querySelector('.ad-card'), false);
+      }
+      addScript(ADS.social, document.body);   /* social bar */
+      watchForPopunder();
+    }
+    function hideAds() {
+      /* Loaded ads can't be unloaded mid-game without losing progress;
+         hide them now, fully gone on next page load. */
+      document.querySelectorAll('.ad-slot').forEach(function (s) { if (adsLoaded) s.classList.add('is-hidden'); });
+    }
+
+    function apply(c) {
+      if (c && c.advertising) loadAds(); else hideAds();
+      window.CLConsent = c || { necessary: true, preferences: false, advertising: false };
+      try { document.dispatchEvent(new CustomEvent('cl:consent', { detail: window.CLConsent })); } catch (e) {}
+    }
+
+    function save(prefs, ads) {
+      var c = { necessary: true, preferences: !!prefs, advertising: !!ads, ts: Date.now() };
+      write(c);
+      if (!prefs) { try { localStorage.removeItem('cl_music'); } catch (e) {} }
+      banner.hidden = true;
+      closeModal();
+      apply(c);
+    }
+
+    /* ---- modal ---- */
+    function openModal() {
+      var c = read() || {};
+      prefBox.checked = !!c.preferences;
+      adsBox.checked = !!c.advertising;
+      lastFocus = document.activeElement;
+      modal.hidden = false;
+      prefBox.focus();
+    }
+    function closeModal() {
+      if (modal.hidden) return;
+      modal.hidden = true;
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    document.getElementById('cc-accept').addEventListener('click', function () { save(true, true); });
+    document.getElementById('cc-reject').addEventListener('click', function () { save(false, false); });
+    document.getElementById('cc-settings').addEventListener('click', openModal);
+    document.getElementById('cc-save').addEventListener('click', function () { save(prefBox.checked, adsBox.checked); });
+    document.getElementById('cc-accept-all-modal').addEventListener('click', function () { save(true, true); });
+    document.getElementById('cc-close').addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest && e.target.closest('[data-cc-open]');
+      if (t) { e.preventDefault(); openModal(); }
+    });
+
+    /* ---- init ---- */
+    var saved = read();
+    if (saved) { apply(saved); } else { banner.hidden = false; apply(null); }
+  })();
+  </script>
 </body>
 </html>
-
